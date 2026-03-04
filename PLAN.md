@@ -10,26 +10,32 @@ The repository is empty aside from `TASKS.md`, `README.md`, and three empty dire
 
 ### Terraform (`aws/`)
 Based on `aws-landingzone` and `github-operations`:
-- Terraform `~> 1.14.0`, AWS provider `6.31.0`
+- Terraform `~> 1.14.0`, AWS provider `6.31.0` (pinned exact, matching the newer `audit` config in the reference)
 - File layout per environment: `main.tf` (backend + providers), `variables.tf`, `terraform.tfvars`, `locals.tf`, per-resource files (`eks.tf`, `iam.tf`, etc.)
 - Reusable modules under `aws/modules/`; root config under `aws/eu-west-1/` (single-region for now)
 - S3 backend with DynamoDB lock (we'll use a local backend initially, switchable to S3 later)
-- `env_prefix` pattern: `{account_name}-{environment}-{region}`
+- `env_prefix` pattern: `{account_name}-{region}` (e.g., `nlaclassic-eu-west-1`)
+- `locals.tf` must define at minimum: `env_prefix = "${var.account_name}-${var.region}"`, `eks_cluster_name = "${local.env_prefix}-eks"`
+- `default_tags` in the AWS provider block: `environment`, `account-name` (matching reference convention)
 - `data "aws_iam_policy_document"` preferred for IAM policies
-- Use `terraform-aws-modules/eks/aws` community module (v21.x) for the cluster, consistent with the landingzone
+- Note: the reference `aws-landingzone` uses a custom internal EKS module, not the community module. For this sample project we use `terraform-aws-modules/eks/aws` (v21.x) as a pragmatic simplification — it provides the same functionality with less boilerplate
 - AWS profile: `nlaclassic`, region: `eu-west-1`, existing VPC/subnets (looked up via data sources), new security groups
-- `.gitignore`: `.terraform/`, `*.tfstate`, `*.tfstate.*`
+- `variables.tf` must define `account_name` (string) and `region` (string with validation restricting to `eu-west-1`); `vpc_id` for VPC lookup; subnet tags/filters for subnet discovery
+- `.gitignore`: `.terraform/`, `*.tfstate`, `*.tfstate.*` (already present in repo)
 
 ### Flux/Kustomize (`flux/`)
 Based on `flux-admin-v2` and `flux-dev-v2`:
 - Structure: `flux/modules/<component>/` for reusable K8s manifests (kustomization.yaml + resource YAMLs)
-- `flux/base/` for shared base resources (namespaces, etc.)
+- `flux/base/` for shared base resources — individual namespace YAML files (e.g., `sample-app-namespace.yaml`, `aws-observability-namespace.yaml`) plus a `kustomization.yaml` listing them (matching `flux-admin-v2` pattern)
 - `flux/envs/<env>/` for environment-specific patches and kustomizations
 - Each module directory has a `kustomization.yaml` listing its resources
+- `namespace:` is set in the env overlay kustomization.yaml, not repeated in each resource YAML
+- `commonLabels:` used in module kustomization.yaml to label all resources
+- `patchesStrategicMerge:` for env-specific overrides (deployment-patch.yaml, etc.)
 - Admin-level components (CSI StorageClass, ALB controller, cluster-autoscaler, logging) go in flux as they're K8s resources
 
 ### Applications (`applications/`)
-- Dockerfiles following `base-images` conventions (.dockerignore + Dockerfile per app)
+- Dockerfiles following `base-images` conventions: pin images by SHA256 digest (`FROM image:tag@sha256:...`), include `# MULTIARCH` comment after FROM, `.dockerignore` with `*` (minimal context)
 - Can optionally be nested under `aws/` if Terraform handles ECR build+push
 
 ## Directory Structure
@@ -39,7 +45,7 @@ aws-sample-eks-platform/
 │   ├── modules/
 │   │   ├── eks-cluster/          # EKS cluster + managed node groups
 │   │   ├── eks-iam/              # Cluster role, node group role, Fargate role
-│   │   ├── eks-oidc-iam/         # OIDC-based roles (EBS CSI, EFS CSI, ALB, autoscaler)
+│   │   ├── eks-oidc-iam/         # OIDC-based IRSA roles — instantiated per addon (EBS CSI, EFS CSI, ALB, autoscaler) with different policy ARNs
 │   │   ├── eks-fargate/          # Fargate profile
 │   │   ├── eks-karpenter/        # Karpenter IAM roles
 │   │   └── ecr/                  # ECR repository management
@@ -52,11 +58,15 @@ aws-sample-eks-platform/
 │       ├── eks.tf                # EKS cluster instantiation
 │       ├── iam.tf                # IAM role instantiation
 │       ├── fargate.tf
+│       ├── efs.tf                # EFS filesystem
 │       ├── ecr.tf
 │       └── outputs.tf
 ├── flux/
 │   ├── base/
-│   │   └── kustomization.yaml   # Namespaces and base resources
+│   │   ├── kustomization.yaml   # Lists all namespace YAML files
+│   │   ├── sample-app-namespace.yaml
+│   │   ├── aws-observability-namespace.yaml
+│   │   └── fargate-namespace.yaml
 │   ├── modules/
 │   │   ├── aws-csi/             # gp3 StorageClass
 │   │   ├── aws-load-balancer-controller/
@@ -78,14 +88,15 @@ aws-sample-eks-platform/
 
 ### Phase 1: Foundation — EKS Cluster + IAM + kubectl Access
 Terraform (`aws/`):
-- `aws/eu-west-1/main.tf`: provider config with `nlaclassic` profile, local backend, required_version `~> 1.14.0`, AWS provider `6.31.0`
-- `aws/eu-west-1/data.tf`: look up existing VPC by tag/filter, subnets (private for EKS, public for ALB)
+- `aws/eu-west-1/main.tf`: provider config with `profile = "nlaclassic"`, `default_tags` block (`environment = "dev"`, `account-name = var.account_name`), local backend, required_version `~> 1.14.0`, AWS provider `6.31.0`
+- `aws/eu-west-1/variables.tf`: `account_name` (string), `region` (string, validated to `eu-west-1`), `vpc_id` (string — user must provide existing VPC ID), `private_subnet_tags` and `public_subnet_tags` (maps for subnet discovery filters)
+- `aws/eu-west-1/terraform.tfvars`: `account_name = "nlaclassic"`, `region = "eu-west-1"`, `vpc_id = "<user-provided>"`, subnet tag filters
+- `aws/eu-west-1/locals.tf`: `env_prefix = "${var.account_name}-${var.region}"`, `eks_cluster_name = "${local.env_prefix}-eks"`
+- `aws/eu-west-1/data.tf`: look up existing VPC by `var.vpc_id`, subnets by tag filters (private for EKS nodes, public for ALB)
 - `aws/modules/eks-iam/`: IAM cluster role (`AmazonEKSClusterPolicy`) and node group role (`AmazonEKSWorkerNodePolicy`, `AmazonEKS_CNI_Policy`, `AmazonEC2ContainerRegistryReadOnly`)
 - `aws/modules/eks-cluster/`: wrap `terraform-aws-modules/eks/aws` v21.x — cluster creation with IRSA, public+private endpoints, coredns/kube-proxy/vpc-cni addons, security group rules (node-to-node all, egress all)
 - `aws/eu-west-1/eks.tf`: instantiate modules
 - `aws/eu-west-1/outputs.tf`: cluster endpoint, cluster name, OIDC provider ARN, kubeconfig update command
-- `.gitignore` at repo root
-
 Validation:
 - `terraform init && terraform plan` succeeds
 - `aws eks update-kubeconfig --name <cluster> --region eu-west-1 --profile nlaclassic`
@@ -106,7 +117,7 @@ Terraform (`aws/`):
 
 Flux (`flux/`):
 - `flux/modules/aws-logging/`: `aws-logging` ConfigMap in `aws-observability` namespace for Fargate log routing to CloudWatch
-- `flux/base/`: namespace definitions (at minimum `default`, `kube-system`—Fargate target namespace)
+- `flux/base/`: namespace YAML files — `aws-observability-namespace.yaml` (required for Fargate logging), `fargate-namespace.yaml` (Fargate target namespace), `sample-app-namespace.yaml` (for the demo app) — each as a separate file listed in `flux/base/kustomization.yaml`
 
 ### Phase 4: Expose Application via LoadBalancer Service
 Flux (`flux/`):
@@ -118,22 +129,23 @@ Applications:
 
 ### Phase 5: EBS/EFS Storage
 Terraform (`aws/`):
-- `aws/modules/eks-oidc-iam/`: IRSA roles for EBS CSI driver and EFS CSI driver (trust policy with OIDC, attach `AmazonEBSCSIDriverPolicy` / `AmazonEFSCSIDriverPolicy`)
+- `aws/modules/eks-oidc-iam/`: reusable IRSA role module — instantiated once per addon with different `service_account_name`, `namespace`, and `policy_arns`. Called separately for EBS CSI driver (`AmazonEBSCSIDriverPolicy`) and EFS CSI driver (`AmazonEFSCSIDriverPolicy`)
 - Install EBS CSI and EFS CSI as EKS addons via the cluster module (addon_version + service_account_role_arn)
 - KMS key for EBS encryption (with policy allowing autoscaling service-linked role and cluster role)
+- `aws/eu-west-1/efs.tf`: create `aws_efs_file_system` (encrypted, lifecycle policy) + `aws_efs_mount_target` per private subnet + security group allowing NFS ingress from the cluster
 
 Flux (`flux/`):
-- `flux/modules/aws-csi/gp3.yaml`: gp3 StorageClass (default), encrypted, WaitForFirstConsumer
+- `flux/modules/aws-csi/gp3.yaml`: gp3 StorageClass (default), encrypted, WaitForFirstConsumer (matching reference `flux-admin-v2/modules/aws-csi/gp3.yaml`)
 - Example PVC manifest and StatefulSet with volumeClaimTemplates in `flux/modules/sample-app/` or a dedicated storage-demo module
-- EFS: PersistentVolume + PVC pointing to EFS filesystem ID (EFS filesystem created in Terraform)
+- EFS: PersistentVolume + PVC pointing to EFS filesystem ID (filesystem created in `aws/eu-west-1/efs.tf`, ID passed via Terraform output)
 
 ### Phase 6: Ingress Controller + ALB
 Terraform (`aws/`):
 - `aws/modules/eks-oidc-iam/`: IRSA role for AWS Load Balancer Controller (comprehensive policy from reference project: ec2, elasticloadbalancing, cognito, acm, waf, shield, iam:CreateServiceLinkedRole)
 
 Flux (`flux/`):
-- `flux/modules/aws-load-balancer-controller/`: Full ALB controller deployment — CRDs (IngressClassParams, TargetGroupBinding), ClusterRole, RoleBinding, Deployment, Service, IngressClass `alb`, webhook configuration
-- cert-manager dependency (Certificate + Issuer for webhook TLS) — or simplified self-managed cert approach
+- `flux/modules/aws-load-balancer-controller/`: Full ALB controller deployment — CRDs (IngressClassParams, TargetGroupBinding), ClusterRole, RoleBinding, Deployment, Service, IngressClass `alb`, webhook configuration (matching `flux-admin-v2/modules/aws-load-balancer-controller/`)
+- Webhook TLS: use a self-signed certificate generated via a Job or static cert baked into the deployment manifests (avoiding full cert-manager dependency to keep the sample project lightweight; cert-manager can be added later if needed)
 - Ingress resource for sample-app routed via ALB
 
 ### Phase 7: Scaling — Cluster Autoscaler + Karpenter
@@ -151,6 +163,7 @@ Terraform (`aws/`):
 - `aws/modules/ecr/`: `aws_ecr_repository` with image scanning, lifecycle policy, encryption + `null_resource` with `local-exec` for Docker build+push
 - The module hashes the application source directory (`applications/<app>/`); on change, it runs `aws ecr get-login-password | docker login`, `docker build`, `docker push` via `local-exec` provisioner
 - Uses `triggers = { src_hash = sha256(fileset(...)) }` to detect source changes — only rebuilds when Dockerfile or app code changes (same idempotency as `cdk-ecr-deployment`)
+- Note: `local-exec` requires Docker to be running locally and won't work in CI without Docker-in-Docker. This is a pragmatic simplification for the sample project — the reference projects use GitHub Actions for image builds (`base-images/.github/workflows/`). A CI pipeline can be added later
 - `aws/eu-west-1/ecr.tf`: create repositories for sample-app (and future services)
 - Node IAM roles already have `AmazonEC2ContainerRegistryReadOnly` from Phase 2
 
@@ -165,20 +178,43 @@ Applications:
 Status: **PENDING** | **IN PROGRESS** | **DONE**
 
 - PENDING — Phase 1: Foundation — EKS Cluster + IAM + kubectl Access
+  - PENDING — Setting up AWS EKS
+  - PENDING — IAM cluster role
+  - PENDING — IAM node group role
+  - PENDING — Ensure AWS EKS cluster is accessible through kubectl CLI
 - PENDING — Phase 2: Managed Node Groups
+  - PENDING — Create managed node groups
 - PENDING — Phase 3: Fargate Profile + Logging
+  - PENDING — Create IAM role for Fargate profile
+  - PENDING — Add Fargate profile to EKS
+  - PENDING — Add aws-logging ConfigMap
 - PENDING — Phase 4: Expose Application via LoadBalancer Service
+  - PENDING — Expose application using ServiceType LoadBalancer
 - PENDING — Phase 5: EBS/EFS Storage
+  - PENDING — IAM configuration to use EBS as storage
+  - PENDING — Install and configure CSI Driver
+  - PENDING — Persistent storage with PVC EBS CSI Driver
+  - PENDING — Persistent storage with ClaimTemplates
+  - PENDING — Configurations to use EFS PersistentVolumes
 - PENDING — Phase 6: Ingress Controller + ALB
+  - PENDING — IAM Policy for ALB
+  - PENDING — Deploying ALB Ingress Controller Resources
+  - PENDING — Deploying ALB Ingress Controller to Route External Traffic
 - PENDING — Phase 7: Scaling — Cluster Autoscaler + Karpenter
+  - PENDING — Cluster Autoscaler for NodeGroups / Karpenter
+  - PENDING — IAM Policy and Role for Cluster AutoScaler
+  - PENDING — Observability for Cluster Autoscaler
 - PENDING — Phase 8: ECR Integration
+  - PENDING — Create and manage ECR repo
+  - PENDING — EKS to pull ECR repos
 
 Each phase is independently deployable/undoable. Terraform `destroy` tears down AWS resources; `kubectl delete -k` removes Flux resources.
 
 Phases are executed one at a time. After each phase, a commit message is suggested and execution pauses until the user commits and gives the go-ahead.
 
 ## Notes
-- The `nlaclassic` AWS profile has no `role_arn` or `source_profile` — it likely relies on credential_process or SSO; we'll use it as-is with `profile = "nlaclassic"` in the provider
-- VPC and subnets are existing — we'll use data sources with appropriate tags/filters to discover them; the user will need to provide VPC ID or tag filters in `terraform.tfvars`
+- The `nlaclassic` AWS profile has `region = eu-west-1` only — no `role_arn` or `source_profile`. Credentials likely come from `~/.aws/credentials`, env vars, or SSO. We use `profile = "nlaclassic"` in the provider as-is
+- VPC and subnets are existing — we use `var.vpc_id` (user must provide in `terraform.tfvars`) and tag-based data source filters for subnet discovery. User will need to supply the VPC ID and confirm subnet tagging (e.g., `kubernetes.io/role/internal-elb = 1` for private, `kubernetes.io/role/elb = 1` for public)
 - Security groups are created fresh per the requirements
-- We'll keep the plan simple for a sample/reference project — no multi-environment complexity initially, just `dev` environment targeting `eu-west-1`
+- We keep the plan simple for a sample/reference project — no multi-environment complexity initially, just `dev` environment targeting `eu-west-1`
+- Divergences from reference projects are documented inline (community EKS module vs custom, `local-exec` Docker builds vs GitHub Actions CI, self-signed webhook certs vs cert-manager)
