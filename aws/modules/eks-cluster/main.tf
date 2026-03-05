@@ -49,6 +49,13 @@ module "eks" {
 
   enable_cluster_creator_admin_permissions = true
 
+  eks_managed_node_groups = {
+    for k, v in var.eks_managed_node_groups : k => merge(v, {
+      create_iam_role = false
+      iam_role_arn    = var.node_group_role_arn
+    })
+  }
+
   node_security_group_additional_rules = {
     ingress_self_all = {
       description = "Node to node all ports/protocols"

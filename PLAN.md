@@ -182,8 +182,8 @@ Status: **PENDING** | **IN PROGRESS** | **DONE**
   - DONE — IAM cluster role
   - DONE — IAM node group role
   - PENDING — Ensure AWS EKS cluster is accessible through kubectl CLI
-- PENDING — Phase 2: Managed Node Groups
-  - PENDING — Create managed node groups
+- DONE — Phase 2: Managed Node Groups
+  - DONE — Create managed node groups
 - PENDING — Phase 3: Fargate Profile + Logging
   - PENDING — Create IAM role for Fargate profile
   - PENDING — Add Fargate profile to EKS

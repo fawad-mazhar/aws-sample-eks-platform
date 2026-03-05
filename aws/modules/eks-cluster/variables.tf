@@ -34,3 +34,15 @@ variable "cni_addon_version" {
   type    = string
   default = "v1.19.2-eksbuild.1"
 }
+
+variable "node_group_role_arn" {
+  type        = string
+  description = "ARN of the IAM role for EKS managed node groups."
+  default     = ""
+}
+
+variable "eks_managed_node_groups" {
+  type        = any
+  description = "Map of EKS managed node group configurations."
+  default     = {}
+}

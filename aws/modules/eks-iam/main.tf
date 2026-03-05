@@ -70,3 +70,13 @@ resource "aws_iam_role_policy_attachment" "node_ecr" {
   role       = aws_iam_role.node_group.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
 }
+
+resource "aws_iam_role_policy_attachment" "node_ssm" {
+  role       = aws_iam_role.node_group.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
+resource "aws_iam_role_policy_attachment" "node_cloudwatch" {
+  role       = aws_iam_role.node_group.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+}
