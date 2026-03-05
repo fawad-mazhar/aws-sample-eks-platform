@@ -20,7 +20,7 @@ Based on `aws-landingzone` and `github-operations`:
 - `data "aws_iam_policy_document"` preferred for IAM policies
 - Note: the reference `aws-landingzone` uses a custom internal EKS module, not the community module. For this sample project we use `terraform-aws-modules/eks/aws` (v21.x) as a pragmatic simplification — it provides the same functionality with less boilerplate
 - AWS profile: `nlaclassic`, region: `eu-west-1`, existing VPC/subnets (looked up via data sources), new security groups
-- `variables.tf` must define `account_name` (string) and `region` (string with validation restricting to `eu-west-1`); `vpc_id` for VPC lookup; subnet tags/filters for subnet discovery
+- `variables.tf` must define `account_name` (string), `region` (string with validation restricting to `eu-west-1`), `environment` (string), `vpc_id` (string); subnets discovered via `map-public-ip-on-launch` filter
 - `.gitignore`: `.terraform/`, `*.tfstate`, `*.tfstate.*` (already present in repo)
 
 ### Flux/Kustomize (`flux/`)
@@ -89,10 +89,10 @@ aws-sample-eks-platform/
 ### Phase 1: Foundation — EKS Cluster + IAM + kubectl Access
 Terraform (`aws/`):
 - `aws/eu-west-1/main.tf`: provider config with `profile = "nlaclassic"`, `default_tags` block (`environment = "dev"`, `account-name = var.account_name`), local backend, required_version `~> 1.14.0`, AWS provider `6.31.0`
-- `aws/eu-west-1/variables.tf`: `account_name` (string), `region` (string, validated to `eu-west-1`), `vpc_id` (string — user must provide existing VPC ID), `private_subnet_tags` and `public_subnet_tags` (maps for subnet discovery filters)
-- `aws/eu-west-1/terraform.tfvars`: `account_name = "nlaclassic"`, `region = "eu-west-1"`, `vpc_id = "<user-provided>"`, subnet tag filters
+- `aws/eu-west-1/variables.tf`: `account_name` (string), `region` (string, validated to `eu-west-1`), `environment` (string, default `dev`), `vpc_id` (string)
+- `aws/eu-west-1/terraform.tfvars`: `account_name = "nlaclassic"`, `region = "eu-west-1"`, `vpc_id = "vpc-00e377b27a8a29ba1"`
 - `aws/eu-west-1/locals.tf`: `env_prefix = "${var.account_name}-${var.region}"`, `eks_cluster_name = "${local.env_prefix}-eks"`
-- `aws/eu-west-1/data.tf`: look up existing VPC by `var.vpc_id`, subnets by tag filters (private for EKS nodes, public for ALB)
+- `aws/eu-west-1/data.tf`: look up existing VPC by `var.vpc_id`, subnets by `map-public-ip-on-launch` filter (private=false, public=true)
 - `aws/modules/eks-iam/`: IAM cluster role (`AmazonEKSClusterPolicy`) and node group role (`AmazonEKSWorkerNodePolicy`, `AmazonEKS_CNI_Policy`, `AmazonEC2ContainerRegistryReadOnly`)
 - `aws/modules/eks-cluster/`: wrap `terraform-aws-modules/eks/aws` v21.x — cluster creation with IRSA, public+private endpoints, coredns/kube-proxy/vpc-cni addons, security group rules (node-to-node all, egress all)
 - `aws/eu-west-1/eks.tf`: instantiate modules
@@ -177,10 +177,10 @@ Applications:
 
 Status: **PENDING** | **IN PROGRESS** | **DONE**
 
-- PENDING — Phase 1: Foundation — EKS Cluster + IAM + kubectl Access
+- IN PROGRESS — Phase 1: Foundation — EKS Cluster + IAM + kubectl Access
   - PENDING — Setting up AWS EKS
-  - PENDING — IAM cluster role
-  - PENDING — IAM node group role
+  - DONE — IAM cluster role
+  - DONE — IAM node group role
   - PENDING — Ensure AWS EKS cluster is accessible through kubectl CLI
 - PENDING — Phase 2: Managed Node Groups
   - PENDING — Create managed node groups
@@ -214,7 +214,7 @@ Phases are executed one at a time. After each phase, a commit message is suggest
 
 ## Notes
 - The `nlaclassic` AWS profile has `region = eu-west-1` only — no `role_arn` or `source_profile`. Credentials likely come from `~/.aws/credentials`, env vars, or SSO. We use `profile = "nlaclassic"` in the provider as-is
-- VPC and subnets are existing — we use `var.vpc_id` (user must provide in `terraform.tfvars`) and tag-based data source filters for subnet discovery. User will need to supply the VPC ID and confirm subnet tagging (e.g., `kubernetes.io/role/internal-elb = 1` for private, `kubernetes.io/role/elb = 1` for public)
+- VPC `vpc-00e377b27a8a29ba1` (nla-vpc-dev-2, 10.16.0.0/16) with 3 private + 3 public subnets across eu-west-1a/b/c. Subnets lack Kubernetes tags so we use `map-public-ip-on-launch` filter to distinguish private/public
 - Security groups are created fresh per the requirements
 - We keep the plan simple for a sample/reference project — no multi-environment complexity initially, just `dev` environment targeting `eu-west-1`
 - Divergences from reference projects are documented inline (community EKS module vs custom, `local-exec` Docker builds vs GitHub Actions CI, self-signed webhook certs vs cert-manager)
