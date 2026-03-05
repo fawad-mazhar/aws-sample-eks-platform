@@ -17,3 +17,19 @@ output "private_subnet_ids" {
 output "public_subnet_ids" {
   value = data.aws_subnets.public.ids
 }
+
+output "cluster_endpoint" {
+  value = module.eks_cluster.cluster_endpoint
+}
+
+output "cluster_name" {
+  value = module.eks_cluster.cluster_name
+}
+
+output "oidc_provider_arn" {
+  value = module.eks_cluster.oidc_provider_arn
+}
+
+output "kubeconfig_command" {
+  value = "aws eks update-kubeconfig --name ${module.eks_cluster.cluster_name} --region ${var.region} --profile nlaclassic"
+}

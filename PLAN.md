@@ -178,7 +178,7 @@ Applications:
 Status: **PENDING** | **IN PROGRESS** | **DONE**
 
 - IN PROGRESS — Phase 1: Foundation — EKS Cluster + IAM + kubectl Access
-  - PENDING — Setting up AWS EKS
+  - DONE — Setting up AWS EKS
   - DONE — IAM cluster role
   - DONE — IAM node group role
   - PENDING — Ensure AWS EKS cluster is accessible through kubectl CLI
