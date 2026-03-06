@@ -56,6 +56,13 @@ module "eks" {
     })
   }
 
+  fargate_profiles = {
+    for k, v in var.fargate_profiles : k => merge(v, {
+      create_iam_role = false
+      iam_role_arn    = var.fargate_role_arn
+    })
+  }
+
   node_security_group_additional_rules = {
     ingress_self_all = {
       description = "Node to node all ports/protocols"

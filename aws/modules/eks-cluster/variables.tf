@@ -46,3 +46,15 @@ variable "eks_managed_node_groups" {
   description = "Map of EKS managed node group configurations."
   default     = {}
 }
+
+variable "fargate_profiles" {
+  type        = any
+  description = "Map of Fargate profile configurations."
+  default     = {}
+}
+
+variable "fargate_role_arn" {
+  type        = string
+  description = "ARN of the IAM role for EKS Fargate profiles."
+  default     = ""
+}

@@ -184,10 +184,12 @@ Status: **PENDING** | **IN PROGRESS** | **DONE**
   - PENDING — Ensure AWS EKS cluster is accessible through kubectl CLI
 - DONE — Phase 2: Managed Node Groups
   - DONE — Create managed node groups
-- PENDING — Phase 3: Fargate Profile + Logging
-  - PENDING — Create IAM role for Fargate profile
-  - PENDING — Add Fargate profile to EKS
-  - PENDING — Add aws-logging ConfigMap
+- DONE — Phase 3: Fargate Profile + Logging
+  - DONE — Create IAM role for Fargate profile
+  - DONE — Add Fargate profile to EKS
+  - DONE — Add aws-logging ConfigMap
+  - DONE — Add namespace YAMLs (aws-observability, fargate, sample-app)
+  - DONE — Add bin/ scripts (build.sh, validate.sh, tf-plan.sh)
 - PENDING — Phase 4: Expose Application via LoadBalancer Service
   - PENDING — Expose application using ServiceType LoadBalancer
 - PENDING — Phase 5: EBS/EFS Storage

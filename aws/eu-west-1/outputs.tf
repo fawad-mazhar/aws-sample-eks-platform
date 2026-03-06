@@ -30,6 +30,10 @@ output "oidc_provider_arn" {
   value = module.eks_cluster.oidc_provider_arn
 }
 
+output "fargate_role_arn" {
+  value = module.eks_fargate_iam.fargate_role_arn
+}
+
 output "kubeconfig_command" {
   value = "aws eks update-kubeconfig --name ${module.eks_cluster.cluster_name} --region ${var.region} --profile nlaclassic"
 }
