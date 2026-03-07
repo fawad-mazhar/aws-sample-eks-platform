@@ -34,6 +34,10 @@ output "fargate_role_arn" {
   value = module.eks_fargate_iam.fargate_role_arn
 }
 
+output "ecr_repository_urls" {
+  value = { for k, v in module.ecr : k => v.repository_url }
+}
+
 output "kubeconfig_command" {
   value = "aws eks update-kubeconfig --name ${module.eks_cluster.cluster_name} --region ${var.region} --profile nlaclassic"
 }

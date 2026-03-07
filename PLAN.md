@@ -206,9 +206,10 @@ Status: **PENDING** | **IN PROGRESS** | **DONE**
   - PENDING — Cluster Autoscaler for NodeGroups / Karpenter
   - PENDING — IAM Policy and Role for Cluster AutoScaler
   - PENDING — Observability for Cluster Autoscaler
-- PENDING — Phase 8: ECR Integration
-  - PENDING — Create and manage ECR repo
-  - PENDING — EKS to pull ECR repos
+- DONE — Phase 8: ECR Integration
+  - DONE — Create ECR module (scanning, lifecycle, local-exec build/push)
+  - DONE — Add nats and nats-box Dockerfiles (from base-images reference)
+  - DONE — Instantiate ECR repos for nats and nats-box
 
 Each phase is independently deployable/undoable. Terraform `destroy` tears down AWS resources; `kubectl delete -k` removes Flux resources.
 

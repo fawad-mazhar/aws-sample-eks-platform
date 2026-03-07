@@ -1,0 +1,2 @@
+# MULTIARCH
+FROM natsio/nats-box:0.19.2@sha256:8031d190c7ee24081f3f27cc939fb647a1eeb29ebb5c60fef9b5b6c7a846d6a2
