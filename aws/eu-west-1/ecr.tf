@@ -33,6 +33,9 @@ locals {
     prometheus-nats-exporter = {
       image_tag = "0.18.0"
     }
+    sealed-secrets-controller = {
+      image_tag = "0.34.0"
+    }
   }
 }
 

@@ -1,0 +1,2 @@
+FROM bitnami/sealed-secrets-controller:0.34.0@sha256:fc98be1ebd2c290d29a04ccefb81a6acb307057085aa1232ff63dca5adb8b9bb
+# MULTIARCH
