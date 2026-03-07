@@ -24,6 +24,15 @@ locals {
     keda-admission-webhooks = {
       image_tag = "2.18.3"
     }
+    prometheus = {
+      image_tag = "v3.9.1"
+    }
+    prometheus-config-reloader = {
+      image_tag = "v0.88.0"
+    }
+    prometheus-nats-exporter = {
+      image_tag = "0.18.0"
+    }
   }
 }
 
