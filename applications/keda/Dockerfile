@@ -1,0 +1,1 @@
+FROM ghcr.io/kedacore/keda:2.18.3@sha256:ca8aacc2041052eb369f97c36399bcd8406431f81f3e77e9ce6051de5ae3e953
