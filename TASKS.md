@@ -26,6 +26,8 @@
 - ECR Integration
   - Create and manage ECR repo
   - EKS to to pull ECR repos
+- Applications 
+  - Use /Users/fawadmazhar/github/workshops/k8s/eks-developers-workshop/python-fastapi-demo-docker as a sample WebApp. Rename it as sample-web-app.
 
 
 ## Conventions and Ways of Working

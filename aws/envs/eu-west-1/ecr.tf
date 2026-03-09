@@ -36,15 +36,18 @@ locals {
     sealed-secrets-controller = {
       image_tag = "0.34.0"
     }
+    sample-app = {
+      image_tag = "1.0.0"
+    }
   }
 }
 
 module "ecr" {
-  source   = "../modules/ecr"
+  source   = "../../modules/ecr"
   for_each = local.ecr_repositories
 
   repository_name = "${local.env_prefix}/${each.key}"
-  source_path     = "${path.module}/../../applications/${each.key}"
+  source_path     = "${path.module}/../../../applications/${each.key}"
   image_tag       = each.value.image_tag
   region          = var.region
   aws_profile     = "nlaclassic"
