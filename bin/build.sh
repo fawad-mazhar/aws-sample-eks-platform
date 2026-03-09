@@ -9,7 +9,7 @@ ENV=${1}
 if [ -z "${ENV}" ]; then
 	echo "Environment name arg missing"
 	echo "Usage: bin/build.sh <env>"
-	echo "Example: bin/build.sh dev"
+	echo "Example: bin/build.sh eu-west-1"
 	exit 1
 fi
 

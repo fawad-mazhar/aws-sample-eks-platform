@@ -9,7 +9,7 @@ REGION=${1:-eu-west-1}
 
 cd "$(git rev-parse --show-toplevel)"
 
-TF_DIR="aws/${REGION}"
+TF_DIR="aws/envs/${REGION}"
 if [ ! -d "${TF_DIR}" ]; then
 	echo "Terraform directory not found: ${TF_DIR}"
 	exit 1

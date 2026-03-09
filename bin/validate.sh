@@ -9,7 +9,7 @@ INPUT=${1}
 if [ -z "${INPUT}" ]; then
 	echo "Input arg missing (path to file or directory)"
 	echo "Usage: bin/validate.sh <path>"
-	echo "Example: bin/validate.sh flux/envs/dev"
+	echo "Example: bin/validate.sh flux/envs/eu-west-1"
 	exit 1
 fi
 
