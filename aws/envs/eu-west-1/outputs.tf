@@ -30,6 +30,14 @@ output "oidc_provider_arn" {
   value = module.eks_cluster.oidc_provider_arn
 }
 
+output "oidc_provider" {
+  value = module.eks_cluster.oidc_provider
+}
+
+output "alb_controller_role_arn" {
+  value = module.alb_controller_irsa.role_arn
+}
+
 output "fargate_role_arn" {
   value = module.eks_fargate_iam.fargate_role_arn
 }

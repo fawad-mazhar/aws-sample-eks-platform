@@ -3,4 +3,7 @@ kind: Kustomization
 resources:
   - ../../base
   - ../../modules/aws-logging
+  - ../../modules/aws-load-balancer-controller
   - ../../modules/sample-app
+  - cluster-information-configmap.yaml
+  - kgateway

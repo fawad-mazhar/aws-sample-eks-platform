@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cluster-information
+  namespace: kube-system
+data:
+  cluster-name: nlaclassic-eu-west-1-eks
+  aws-region: eu-west-1
+  aws-vpc-id: vpc-00e377b27a8a29ba1

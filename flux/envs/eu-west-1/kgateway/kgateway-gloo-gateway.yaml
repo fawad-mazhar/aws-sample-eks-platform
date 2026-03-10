@@ -1,0 +1,12 @@
+apiVersion: gateway.solo.io/v1
+kind: Gateway
+metadata:
+  name: main-gateway
+  namespace: kgateway
+spec:
+  bindAddress: "::"
+  bindPort: 8080
+  httpGateway: {}
+  useProxyProto: false
+  proxyNames:
+    - gateway-proxy
