@@ -29,8 +29,11 @@
 - Applications 
   - Use /Users/fawadmazhar/github/workshops/k8s/eks-developers-workshop/python-fastapi-demo-docker as a sample WebApp. Rename it as sample-web-app.
 - Flux
- - Create kubernenetes manifests for kgateway. Ensure it routes the / traffic to simple web app. A load balancer service which is connected with the aws application load balancer. Use /Users/fawadmazhar/ss/flux-admins/flux-admin-v2
+  - Create kubernenetes manifests for kgateway. Ensure it routes the / traffic to simple web app. A load balancer service which is connected with the aws application load balancer. Use /Users/fawadmazhar/ss/flux-admins/flux-admin-v2
  as reference project for kgateway. 
+  - Check if Kgateway* can run of fargate profile. If yes, then it should. It mainly acts as API Gateway. 
+  - Check if sample-app can run on fargata e profile. If yes, then it should.
+  
 
 
 ## Conventions and Ways of Working

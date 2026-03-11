@@ -120,10 +120,15 @@ Terraform (`aws/`):
 Terraform (`aws/`):
 - `aws/modules/eks-fargate/`: IAM role for Fargate with `AmazonEKSFargatePodExecutionRolePolicy`, Fargate profile resource targeting a specific namespace+labels
 - `aws/envs/eu-west-1/fargate.tf`: instantiate with namespace selector (e.g., `fargate` namespace)
+- `aws/envs/eu-west-1/eks.tf`: Fargate profiles for 3 namespaces:
+  - `fargate` — general-purpose Fargate namespace
+  - `kgateway` — all kgateway components (gloo, discovery, gateway-proxy) run on Fargate as they are stateless Deployments with no hostNetwork/privileged requirements
+  - `sample-app` — only FastAPI pods (label `app: fastapi-app`) run on Fargate; Postgres StatefulSet stays on managed nodes because Fargate does not support EBS volumes
 
 Flux (`flux/`):
 - `flux/modules/aws-logging/`: `aws-logging` ConfigMap in `aws-observability` namespace for Fargate log routing to CloudWatch
 - `flux/base/`: namespace YAML files — `aws-observability-namespace.yaml` (required for Fargate logging), `fargate-namespace.yaml` (Fargate target namespace), `sample-app-namespace.yaml` (for the demo app) — each as a separate file listed in `flux/base/kustomization.yaml`
+- `flux/modules/sample-app/kustomization.yaml`: `namespace: sample-app` set to ensure all sample-app resources deploy to the correct namespace (required for Fargate profile matching)
 
 ### Phase 4: Expose Application via LoadBalancer Service
 Flux (`flux/`):
@@ -202,6 +207,9 @@ Status: **PENDING** | **IN PROGRESS** | **DONE**
   - DONE — Add aws-logging ConfigMap
   - DONE — Add namespace YAMLs (aws-observability, fargate, sample-app)
   - DONE — Add bin/ scripts (build.sh, validate.sh, tf-plan.sh)
+  - DONE — Add Fargate profile for kgateway namespace (all components: gloo, discovery, gateway-proxy)
+  - DONE — Add Fargate profile for sample-app namespace (FastAPI only — label selector `app: fastapi-app`; Postgres excluded — Fargate does not support EBS)
+  - DONE — Set `namespace: sample-app` on sample-app module kustomization for Fargate profile matching
 - DONE — Phase 4: Sample Application + LoadBalancer Service
   - DONE — Copy python-fastapi-demo-docker source to applications/sample-app/
   - DONE — Create Dockerfile with SHA256-pinned python:3.9-slim-buster base image
@@ -255,3 +263,4 @@ Phases are executed one at a time. After each phase, a commit message is suggest
 - ALB controller webhook TLS requires cert-manager to be installed. The deployment includes cert-manager Certificate and Issuer resources. cert-manager is a prerequisite for Phase 6 deployment
 - ALB controller uses `public.ecr.aws/eks/aws-load-balancer-controller:v2.12.0` (public ECR). Can be mirrored to project ECR for production use
 - kgateway manifests adapted from `flux-admin-v2` reference — namespace changed from `support` to `kgateway`, images point to project ECR, replicas scaled to 1 for sample project
+- Fargate scheduling: kgateway runs entirely on Fargate (all 3 components are stateless Deployments with no hostNetwork/privileged/DaemonSet constraints). Sample-app FastAPI runs on Fargate; Postgres stays on managed nodes (Fargate does not support EBS PersistentVolumeClaims — only EFS is supported). Terraform plan: 86 resources (+2 Fargate profiles from 84)

@@ -74,5 +74,22 @@ module "eks_cluster" {
         }
       ]
     }
+    kgateway = {
+      selectors = [
+        {
+          namespace = "kgateway"
+        }
+      ]
+    }
+    sample-app = {
+      selectors = [
+        {
+          namespace = "sample-app"
+          labels = {
+            app = "fastapi-app"
+          }
+        }
+      ]
+    }
   }
 }
