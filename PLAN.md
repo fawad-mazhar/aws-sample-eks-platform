@@ -60,6 +60,7 @@ aws-sample-eks-platform/
 │           ├── iam.tf            # IAM role instantiation
 │           ├── fargate.tf
 │           ├── alb.tf            # ALB controller IRSA role + IAM policy
+│           ├── route53.tf        # Route53 zone + conditional ALB alias record
 │           ├── efs.tf            # EFS filesystem (Phase 5)
 │           ├── ecr.tf
 │           └── outputs.tf
@@ -68,11 +69,13 @@ aws-sample-eks-platform/
 │   │   ├── kustomization.yaml   # Lists all namespace YAML files
 │   │   ├── sample-app-namespace.yaml
 │   │   ├── aws-observability-namespace.yaml
+│   │   ├── cert-manager-namespace.yaml
 │   │   ├── fargate-namespace.yaml
 │   │   └── kgateway-namespace.yaml
 │   ├── modules/
 │   │   ├── aws-csi/             # gp3 StorageClass (Phase 5)
 │   │   ├── aws-load-balancer-controller/  # CRDs, RBAC, Deployment, Webhooks, IngressClass
+│   │   ├── cert-manager/        # cert-manager v1.19.2 CRDs, Deployments, Webhooks, self-signing ClusterIssuer
 │   │   ├── cluster-autoscaler/  # Phase 7
 │   │   ├── aws-logging/         # aws-logging ConfigMap for Fargate
 │   │   ├── kgateway/            # Gloo Gateway: CRDs, control plane, Envoy proxy
@@ -80,6 +83,7 @@ aws-sample-eks-platform/
 │   └── envs/
 │       └── eu-west-1/
 │           ├── kustomization.yaml
+│           ├── cert-manager/     # Environment overlay
 │           ├── cluster-information-configmap.yaml
 │           └── kgateway/        # GatewayClass, Gateway, VirtualService, ALB Ingress
 ├── applications/
@@ -150,20 +154,24 @@ Flux (`flux/`):
 - Example PVC manifest and StatefulSet with volumeClaimTemplates in `flux/modules/sample-app/` or a dedicated storage-demo module
 - EFS: PersistentVolume + PVC pointing to EFS filesystem ID (filesystem created in `aws/envs/eu-west-1/efs.tf`, ID passed via Terraform output)
 
-### Phase 6: Ingress Controller + ALB + kgateway
+### Phase 6: Ingress Controller + ALB + kgateway + cert-manager + Domain/SSL
 Terraform (`aws/`):
 - `aws/modules/eks-oidc-iam/`: Reusable IRSA module — creates IAM role with OIDC trust policy for a given service account + namespace. Generic and instantiated per addon
 - `aws/envs/eu-west-1/alb.tf`: Instantiate IRSA for ALB controller with comprehensive IAM policy (14 statements: ec2, elasticloadbalancing, cognito, acm, waf, shield, iam:CreateServiceLinkedRole). Policy from `aws-landingzone` reference
+- `aws/envs/eu-west-1/route53.tf`: Route53 hosted zone for `code-si.com` + conditional A record alias for `books.code-si.com` → ALB (gated by `alb_deployed` variable — set to `true` after ALB exists)
 
 Flux (`flux/`):
+- `flux/modules/cert-manager/`: cert-manager v1.19.2 — CRDs (6), Deployments (controller, webhook, cainjector), RBAC, Services, ValidatingWebhookConfiguration, MutatingWebhookConfiguration, self-signing ClusterIssuer. Images from project ECR. Namespace resource removed (managed in `flux/base/`)
+- `flux/base/cert-manager-namespace.yaml`: Namespace for cert-manager
+- `flux/envs/eu-west-1/cert-manager/`: Environment overlay with `namespace: cert-manager`
 - `flux/modules/aws-load-balancer-controller/`: Full ALB controller deployment — CRDs (IngressClassParams, TargetGroupBinding), ServiceAccount with IRSA annotation, ClusterRole, RoleBinding, Deployment, Service, IngressClass `alb`, webhook configuration. Image: `public.ecr.aws/eks/aws-load-balancer-controller:v2.12.0`. Adapted from `flux-admin-v2` reference. Requires cert-manager for webhook TLS
 - `flux/envs/eu-west-1/cluster-information-configmap.yaml`: ConfigMap in kube-system with cluster-name, aws-region, aws-vpc-id (read by ALB controller deployment)
 - `flux/modules/kgateway/`: Gloo Gateway — CRDs (Gateway API + Gloo custom resources), control plane (gloo, discovery, gateway-proxy deployments), RBAC, ConfigMaps, Settings. Images from ECR (`nlaclassic-eu-west-1/kgateway-*:1.20.9`). Adapted from `flux-admin-v2/modules/kgateway/`
 - `flux/base/kgateway-namespace.yaml`: Namespace for kgateway components
-- `flux/envs/eu-west-1/kgateway/`: Environment overlay — GatewayClass (`solo.io/gloo-gateway`), Gateway (HTTP listener port 80), Gloo Gateway (binds Envoy to port 8080), VirtualService routing `/*` to `sample-app-fastapi-service-80` upstream, ALB Ingress (internet-facing, target-type IP, routes to gateway-proxy)
+- `flux/envs/eu-west-1/kgateway/`: Environment overlay — GatewayClass (`solo.io/gloo-gateway`), Gateway (HTTP listener port 80), Gloo Gateway (binds Envoy to port 8080), VirtualService routing `books.code-si.com/*` to `sample-app-fastapi-service-80` upstream, ALB Ingress (internet-facing, HTTPS with ACM cert, HTTP→HTTPS redirect, host `books.code-si.com`, routes to gateway-proxy)
 - `flux/modules/sample-app/service.yaml`: Changed from LoadBalancer to ClusterIP (traffic now routed via kgateway)
 
-Traffic flow: Client → AWS ALB (Ingress) → gateway-proxy (Envoy) → VirtualService routing → sample-app Service (ClusterIP) → FastAPI pods
+Traffic flow: Client → `books.code-si.com` (Route53) → AWS ALB (HTTPS, ACM cert) → gateway-proxy (Envoy, HTTP) → VirtualService routing → sample-app Service (ClusterIP) → FastAPI pods
 
 ### Phase 7: Scaling — Cluster Autoscaler + Karpenter
 Terraform (`aws/`):
@@ -222,7 +230,7 @@ Status: **PENDING** | **IN PROGRESS** | **DONE**
   - PENDING — Persistent storage with PVC EBS CSI Driver
   - PENDING — Persistent storage with ClaimTemplates
   - PENDING — Configurations to use EFS PersistentVolumes
-- DONE — Phase 6: Ingress Controller + ALB + kgateway
+- DONE — Phase 6: Ingress Controller + ALB + kgateway + cert-manager + Domain/SSL
   - DONE — Create reusable IRSA module (aws/modules/eks-oidc-iam/)
   - DONE — ALB controller IRSA role with full IAM policy (aws/envs/eu-west-1/alb.tf)
   - DONE — ALB controller Flux manifests (CRDs, RBAC, ServiceAccount, Deployment, Webhooks, IngressClass)
@@ -231,6 +239,11 @@ Status: **PENDING** | **IN PROGRESS** | **DONE**
   - DONE — kgateway environment overlay (GatewayClass, Gateway, VirtualService, ALB Ingress)
   - DONE — VirtualService routing / to sample-app via kgateway
   - DONE — Change sample-app service from LoadBalancer to ClusterIP
+  - DONE — cert-manager v1.19.2 module (CRDs, controller, webhook, cainjector, self-signing ClusterIssuer)
+  - DONE — cert-manager ECR repos (controller, webhook, cainjector) + Dockerfiles
+  - DONE — Route53 hosted zone for code-si.com + conditional ALB alias for books.code-si.com
+  - DONE — ALB Ingress updated: HTTPS with ACM cert, HTTP→HTTPS redirect, host books.code-si.com
+  - DONE — VirtualService updated: domain books.code-si.com instead of wildcard
 - PENDING — Phase 7: Scaling — Cluster Autoscaler + Karpenter
   - PENDING — Cluster Autoscaler for NodeGroups / Karpenter
   - PENDING — IAM Policy and Role for Cluster AutoScaler
@@ -242,6 +255,7 @@ Status: **PENDING** | **IN PROGRESS** | **DONE**
   - DONE — Add kgateway-*, keda-* images (from base-images reference)
   - DONE — Add prometheus-* images (from base-images reference)
   - DONE — Add sealed-secrets-controller image (from base-images reference)
+  - DONE — Add cert-manager-controller, cert-manager-webhook, cert-manager-cainjector images (v1.19.2, from base-images reference)
 
 ## Execution Order
 Phases were executed out of order based on user direction:
@@ -260,7 +274,9 @@ Phases are executed one at a time. After each phase, a commit message is suggest
 - Security groups are created fresh per the requirements
 - We keep the plan simple for a sample/reference project — no multi-environment complexity initially, just `dev` environment targeting `eu-west-1`
 - Divergences from reference projects are documented inline (community EKS module vs custom, `local-exec` Docker builds vs GitHub Actions CI, self-signed webhook certs vs cert-manager)
-- ALB controller webhook TLS requires cert-manager to be installed. The deployment includes cert-manager Certificate and Issuer resources. cert-manager is a prerequisite for Phase 6 deployment
+- cert-manager v1.19.2 installed as prerequisite for ALB controller webhook TLS. Images mirrored to project ECR from quay.io/jetstack (SHA256-pinned in Dockerfiles)
 - ALB controller uses `public.ecr.aws/eks/aws-load-balancer-controller:v2.12.0` (public ECR). Can be mirrored to project ECR for production use
+- Domain `code-si.com` with ACM cert in eu-west-1 (`arn:aws:acm:eu-west-1:228904764948:certificate/6868d04e-52c9-4b60-a374-1b028fa701eb`). Route53 ALB record gated by `alb_deployed` variable (set to `true` after ALB exists)
 - kgateway manifests adapted from `flux-admin-v2` reference — namespace changed from `support` to `kgateway`, images point to project ECR, replicas scaled to 1 for sample project
-- Fargate scheduling: kgateway runs entirely on Fargate (all 3 components are stateless Deployments with no hostNetwork/privileged/DaemonSet constraints). Sample-app FastAPI runs on Fargate; Postgres stays on managed nodes (Fargate does not support EBS PersistentVolumeClaims — only EFS is supported). Terraform plan: 86 resources (+2 Fargate profiles from 84)
+- Fargate scheduling: kgateway runs entirely on Fargate (all 3 components are stateless Deployments with no hostNetwork/privileged/DaemonSet constraints). Sample-app FastAPI runs on Fargate; Postgres stays on managed nodes (Fargate does not support EBS PersistentVolumeClaims — only EFS is supported)
+- Terraform plan: 96 resources (16 ECR repos, EKS cluster, 3 Fargate profiles, 2 node groups, IAM roles, Route53 zone)

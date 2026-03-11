@@ -46,6 +46,14 @@ output "ecr_repository_urls" {
   value = { for k, v in module.ecr : k => v.repository_url }
 }
 
+output "route53_zone_id" {
+  value = aws_route53_zone.main.zone_id
+}
+
+output "route53_nameservers" {
+  value = aws_route53_zone.main.name_servers
+}
+
 output "kubeconfig_command" {
   value = "aws eks update-kubeconfig --name ${module.eks_cluster.cluster_name} --region ${var.region} --profile nlaclassic"
 }

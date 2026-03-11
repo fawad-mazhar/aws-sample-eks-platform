@@ -33,6 +33,14 @@
  as reference project for kgateway. 
   - Check if Kgateway* can run of fargate profile. If yes, then it should. It mainly acts as API Gateway. 
   - Check if sample-app can run on fargata e profile. If yes, then it should.
+
+## Domain details
+- code-si.com
+- ssl certificats
+  - us-east-1: arn:aws:acm:us-east-1:228904764948:certificate/23ffe9eb-1a88-45e0-bad0-b1aec37b10bc
+  - eu-west-1: arn:aws:acm:eu-west-1:228904764948:certificate/6868d04e-52c9-4b60-a374-1b028fa701eb
+- books.code-si.com should be routed to sample-app
+- create route53 entries also
   
 
 

@@ -4,20 +4,51 @@ metadata:
   name: kgateway-alb
   namespace: kgateway
   annotations:
+    # ALB ingress group
     alb.ingress.kubernetes.io/group.name: nlaclassic-eu-west-1-ingress
+
+    # Network configuration
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
+
+    # TLS configuration
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:eu-west-1:228904764948:certificate/6868d04e-52c9-4b60-a374-1b028fa701eb
+    alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS13-1-2-2021-06
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+
+    # SSL redirect
+    alb.ingress.kubernetes.io/actions.ssl-redirect: '{"Type": "redirect", "RedirectConfig": {"Protocol": "HTTPS", "Port": "443", "StatusCode": "HTTP_301"}}'
+
+    # Backend uses HTTP — ALB terminates TLS
     alb.ingress.kubernetes.io/backend-protocol: HTTP
-    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+
+    # Health check configuration
     alb.ingress.kubernetes.io/healthcheck-path: /
     alb.ingress.kubernetes.io/healthcheck-port: "80"
     alb.ingress.kubernetes.io/success-codes: "200-399"
+
+    # Load balancer settings
     alb.ingress.kubernetes.io/load-balancer-attributes: routing.http2.enabled=true
+
+    # Tags
     alb.ingress.kubernetes.io/tags: environment=dev
 spec:
   ingressClassName: alb
   rules:
-    - http:
+    # SSL redirect rule
+    - host: books.code-si.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: ssl-redirect
+                port:
+                  name: use-annotation
+    # Main traffic rule
+    - host: books.code-si.com
+      http:
         paths:
           - path: /
             pathType: Prefix

@@ -21,3 +21,9 @@ variable "vpc_id" {
   description = "ID of the existing VPC to use for EKS."
 }
 
+variable "alb_deployed" {
+  type        = bool
+  default     = false
+  description = "Set to true after ALB controller and Ingress are deployed, to create Route53 ALB alias record."
+}
+

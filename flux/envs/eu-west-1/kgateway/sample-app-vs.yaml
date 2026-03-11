@@ -6,7 +6,7 @@ metadata:
 spec:
   virtualHost:
     domains:
-      - "*"
+      - "books.code-si.com"
     routes:
       - matchers:
           - prefix: /
