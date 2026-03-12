@@ -79,7 +79,7 @@ aws-sample-eks-platform/
 │   │   ├── cluster-autoscaler/  # Phase 7
 │   │   ├── aws-logging/         # aws-logging ConfigMap for Fargate
 │   │   ├── kgateway/            # Gloo Gateway: CRDs, control plane, Envoy proxy
-│   │   └── sample-app/          # FastAPI app + Postgres (ClusterIP service)
+│   │   └── sample-app/          # FastAPI app + Postgres with replication (ClusterIP service)
 │   └── envs/
 │       └── eu-west-1/
 │           ├── kustomization.yaml
@@ -87,7 +87,10 @@ aws-sample-eks-platform/
 │           ├── cluster-information-configmap.yaml
 │           └── kgateway/        # GatewayClass, Gateway, VirtualService, ALB Ingress
 ├── applications/
-│   └── sample-app/
+│   ├── sample-app/
+│   │   ├── Dockerfile
+│   │   └── .dockerignore
+│   └── postgresql/
 │       ├── Dockerfile
 │       └── .dockerignore
 ├── TASKS.md
@@ -134,13 +137,45 @@ Flux (`flux/`):
 - `flux/base/`: namespace YAML files — `aws-observability-namespace.yaml` (required for Fargate logging), `fargate-namespace.yaml` (Fargate target namespace), `sample-app-namespace.yaml` (for the demo app) — each as a separate file listed in `flux/base/kustomization.yaml`
 - `flux/modules/sample-app/kustomization.yaml`: `namespace: sample-app` set to ensure all sample-app resources deploy to the correct namespace (required for Fargate profile matching)
 
-### Phase 4: Expose Application via LoadBalancer Service
+### Phase 4: Sample Application + LoadBalancer Service + PostgreSQL with Replication
 Flux (`flux/`):
 - `flux/modules/sample-app/`: Deployment (nginx) + Service type LoadBalancer, kustomization.yaml
 - Environment patch in `flux/envs/eu-west-1/`
 
 Applications:
 - `applications/sample-app/Dockerfile`: simple nginx container
+
+#### Phase 4b: Upgrade PostgreSQL to Bitnami with Replication
+Replace the simple single-instance Postgres 13 StatefulSet with bitnami `postgresql` chart (architecture: `replication`) providing a primary + read replica(s). This is simpler than full HA (postgresql-ha with Repmgr+Pgpool) while still providing redundancy.
+
+Source: `/Users/fawadmazhar/github/codes/k8s-references/charts/bitnami/postgresql/` (chart v17.1.0, app v17.6.0)
+
+Approach: Render the Helm chart with `helm template` using custom values, then adapt rendered manifests for Flux/Kustomize.
+
+Terraform (`aws/`):
+- `aws/envs/eu-west-1/ecr.tf`: Add ECR repository for `bitnami/postgresql` image (v17.6.0)
+
+Applications:
+- `applications/postgresql/Dockerfile`: FROM `docker.io/bitnami/postgresql:17.6.0-debian-12-r4` (SHA256-pinned)
+
+Flux (`flux/`):
+- Replace `flux/modules/sample-app/postgres.yaml` with bitnami-rendered manifests:
+  - Primary StatefulSet (1 replica) with volumeClaimTemplates, health checks, bitnami env vars
+  - Read replica StatefulSet (1 replica) with streaming replication from primary
+  - Primary Service (ClusterIP) + Headless Service
+  - Read replica Service (ClusterIP) + Headless Service
+  - ConfigMap for postgresql.conf customization
+  - Secret updated with bitnami-compatible credential format (postgres password, replication user/password)
+- Update `flux/modules/sample-app/secret.yaml`: connection string points to primary service
+- Preserve init script (`db-init-configmap.yaml`) — adapted for bitnami's init mechanism (`/docker-entrypoint-initdb.d/`)
+- Image references point to project ECR (`228904764948.dkr.ecr.eu-west-1.amazonaws.com/nlaclassic-eu-west-1/postgresql:17.6.0`)
+
+Key details:
+- Primary handles reads+writes; read replica(s) handle read-only queries via separate service
+- FastAPI app connects to primary service (same pattern as current `db` service, just renamed)
+- PostgreSQL native streaming replication (no Repmgr, no Pgpool)
+- Manual failover if primary fails (acceptable for sample project)
+- Still requires EBS CSI driver (Phase 5) for PVCs — Postgres cannot run on Fargate
 
 ### Phase 5: EBS/EFS Storage
 Terraform (`aws/`):
@@ -218,12 +253,17 @@ Status: **PENDING** | **IN PROGRESS** | **DONE**
   - DONE — Add Fargate profile for kgateway namespace (all components: gloo, discovery, gateway-proxy)
   - DONE — Add Fargate profile for sample-app namespace (FastAPI only — label selector `app: fastapi-app`; Postgres excluded — Fargate does not support EBS)
   - DONE — Set `namespace: sample-app` on sample-app module kustomization for Fargate profile matching
-- DONE — Phase 4: Sample Application + LoadBalancer Service
+- IN PROGRESS — Phase 4: Sample Application + LoadBalancer Service + PostgreSQL with Replication
   - DONE — Copy python-fastapi-demo-docker source to applications/sample-app/
   - DONE — Create Dockerfile with SHA256-pinned python:3.9-slim-buster base image
   - DONE — Add sample-app ECR repository
   - DONE — Create Flux manifests (Deployment, LoadBalancer Service, Postgres StatefulSet, Secret, ConfigMap)
   - DONE — Wire sample-app module into dev environment kustomization
+  - PENDING — Upgrade PostgreSQL to bitnami with replication (primary + read replica)
+  - PENDING — Add ECR repository for bitnami/postgresql image
+  - PENDING — Add postgresql Dockerfile (bitnami/postgresql:17.6.0, SHA256-pinned)
+  - PENDING — Replace simple postgres.yaml with bitnami-rendered manifests (primary StatefulSet, read replica StatefulSet, Services, ConfigMap)
+  - PENDING — Update secret with bitnami-compatible credential format
 - PENDING — Phase 5: EBS/EFS Storage
   - PENDING — IAM configuration to use EBS as storage
   - PENDING — Install and configure CSI Driver
@@ -279,4 +319,5 @@ Phases are executed one at a time. After each phase, a commit message is suggest
 - Domain `code-si.com` with ACM cert in eu-west-1 (`arn:aws:acm:eu-west-1:228904764948:certificate/6868d04e-52c9-4b60-a374-1b028fa701eb`). Route53 ALB record gated by `alb_deployed` variable (set to `true` after ALB exists)
 - kgateway manifests adapted from `flux-admin-v2` reference — namespace changed from `support` to `kgateway`, images point to project ECR, replicas scaled to 1 for sample project
 - Fargate scheduling: kgateway runs entirely on Fargate (all 3 components are stateless Deployments with no hostNetwork/privileged/DaemonSet constraints). Sample-app FastAPI runs on Fargate; Postgres stays on managed nodes (Fargate does not support EBS PersistentVolumeClaims — only EFS is supported)
-- Terraform plan: 96 resources (16 ECR repos, EKS cluster, 3 Fargate profiles, 2 node groups, IAM roles, Route53 zone)
+- PostgreSQL upgrade: Using bitnami `postgresql` chart (v17.1.0, app v17.6.0) with `architecture: replication` — primary + read replica(s) using PostgreSQL native streaming replication. Chosen over `postgresql-ha` (Repmgr+Pgpool) for simplicity — manual failover is acceptable for a sample project. Source: `/Users/fawadmazhar/github/codes/k8s-references/charts/bitnami/postgresql/`. Helm templates rendered to plain manifests for Flux/Kustomize compatibility
+- Terraform plan: ~97 resources (17 ECR repos including postgresql, EKS cluster, 3 Fargate profiles, 2 node groups, IAM roles, Route53 zone)

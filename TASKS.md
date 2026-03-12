@@ -28,11 +28,15 @@
   - EKS to to pull ECR repos
 - Applications 
   - Use /Users/fawadmazhar/github/workshops/k8s/eks-developers-workshop/python-fastapi-demo-docker as a sample WebApp. Rename it as sample-web-app.
+  - Use postgres related resources from /Users/fawadmazhar/github/codes/k8s-references/charts/bitnami 'postgresql' and 'postgresql-ha'
+    - I would prefer a highly available postgres if it's easy to do
 - Flux
   - Create kubernenetes manifests for kgateway. Ensure it routes the / traffic to simple web app. A load balancer service which is connected with the aws application load balancer. Use /Users/fawadmazhar/ss/flux-admins/flux-admin-v2
- as reference project for kgateway. 
+ as reference project fAddeor kgateway. 
   - Check if Kgateway* can run of fargate profile. If yes, then it should. It mainly acts as API Gateway. 
   - Check if sample-app can run on fargata e profile. If yes, then it should.
+
+
 
 ## Domain details
 - code-si.com
@@ -41,6 +45,8 @@
   - eu-west-1: arn:aws:acm:eu-west-1:228904764948:certificate/6868d04e-52c9-4b60-a374-1b028fa701eb
 - books.code-si.com should be routed to sample-app
 - create route53 entries also
+
+
   
 
 
