@@ -58,3 +58,27 @@ variable "fargate_role_arn" {
   description = "ARN of the IAM role for EKS Fargate profiles."
   default     = ""
 }
+
+variable "ebs_csi_addon_version" {
+  type        = string
+  default     = ""
+  description = "Version of the EBS CSI driver addon. Leave empty to skip."
+}
+
+variable "ebs_csi_addon_role_arn" {
+  type        = string
+  default     = ""
+  description = "IRSA role ARN for the EBS CSI driver."
+}
+
+variable "efs_csi_addon_version" {
+  type        = string
+  default     = ""
+  description = "Version of the EFS CSI driver addon. Leave empty to skip."
+}
+
+variable "efs_csi_addon_role_arn" {
+  type        = string
+  default     = ""
+  description = "IRSA role ARN for the EFS CSI driver."
+}

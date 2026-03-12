@@ -54,6 +54,18 @@ output "route53_nameservers" {
   value = aws_route53_zone.main.name_servers
 }
 
+output "ebs_csi_role_arn" {
+  value = module.ebs_csi_irsa.role_arn
+}
+
+output "efs_csi_role_arn" {
+  value = module.efs_csi_irsa.role_arn
+}
+
+output "efs_file_system_id" {
+  value = aws_efs_file_system.this.id
+}
+
 output "kubeconfig_command" {
   value = "aws eks update-kubeconfig --name ${module.eks_cluster.cluster_name} --region ${var.region} --profile nlaclassic"
 }

@@ -8,6 +8,11 @@ module "eks_cluster" {
   vpc_id              = data.aws_vpc.this.id
   private_subnet_ids  = data.aws_subnets.private.ids
 
+  ebs_csi_addon_version  = "v1.43.0-eksbuild.1"
+  ebs_csi_addon_role_arn = module.ebs_csi_irsa.role_arn
+  efs_csi_addon_version  = "v2.2.0-eksbuild.1"
+  efs_csi_addon_role_arn = module.efs_csi_irsa.role_arn
+
   eks_managed_node_groups = {
     platform = {
       instance_types = ["t3.medium"]

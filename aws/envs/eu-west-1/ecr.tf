@@ -45,6 +45,9 @@ locals {
     cert-manager-cainjector = {
       image_tag = "1.19.2"
     }
+    postgresql = {
+      image_tag = "18.3.0"
+    }
     sample-app = {
       image_tag = "1.0.0"
     }

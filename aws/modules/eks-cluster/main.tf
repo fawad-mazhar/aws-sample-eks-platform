@@ -25,23 +25,41 @@ module "eks" {
   vpc_id     = var.vpc_id
   subnet_ids = var.private_subnet_ids
 
-  addons = {
-    coredns = {
-      addon_version               = var.coredns_addon_version
-      resolve_conflicts_on_create = "OVERWRITE"
-      resolve_conflicts_on_update = "PRESERVE"
-    }
-    kube-proxy = {
-      addon_version               = var.kube_proxy_addon_version
-      resolve_conflicts_on_create = "OVERWRITE"
-      resolve_conflicts_on_update = "PRESERVE"
-    }
-    vpc-cni = {
-      addon_version               = var.cni_addon_version
-      resolve_conflicts_on_create = "OVERWRITE"
-      resolve_conflicts_on_update = "PRESERVE"
-    }
-  }
+  addons = merge(
+    {
+      coredns = {
+        addon_version               = var.coredns_addon_version
+        resolve_conflicts_on_create = "OVERWRITE"
+        resolve_conflicts_on_update = "PRESERVE"
+      }
+      kube-proxy = {
+        addon_version               = var.kube_proxy_addon_version
+        resolve_conflicts_on_create = "OVERWRITE"
+        resolve_conflicts_on_update = "PRESERVE"
+      }
+      vpc-cni = {
+        addon_version               = var.cni_addon_version
+        resolve_conflicts_on_create = "OVERWRITE"
+        resolve_conflicts_on_update = "PRESERVE"
+      }
+    },
+    var.ebs_csi_addon_version != "" && var.ebs_csi_addon_role_arn != "" ? {
+      aws-ebs-csi-driver = {
+        addon_version               = var.ebs_csi_addon_version
+        service_account_role_arn    = var.ebs_csi_addon_role_arn
+        resolve_conflicts_on_create = "OVERWRITE"
+        resolve_conflicts_on_update = "PRESERVE"
+      }
+    } : {},
+    var.efs_csi_addon_version != "" && var.efs_csi_addon_role_arn != "" ? {
+      aws-efs-csi-driver = {
+        addon_version               = var.efs_csi_addon_version
+        service_account_role_arn    = var.efs_csi_addon_role_arn
+        resolve_conflicts_on_create = "OVERWRITE"
+        resolve_conflicts_on_update = "PRESERVE"
+      }
+    } : {}
+  )
 
   enabled_log_types = ["audit", "api", "authenticator"]
 

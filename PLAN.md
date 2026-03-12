@@ -253,23 +253,26 @@ Status: **PENDING** | **IN PROGRESS** | **DONE**
   - DONE — Add Fargate profile for kgateway namespace (all components: gloo, discovery, gateway-proxy)
   - DONE — Add Fargate profile for sample-app namespace (FastAPI only — label selector `app: fastapi-app`; Postgres excluded — Fargate does not support EBS)
   - DONE — Set `namespace: sample-app` on sample-app module kustomization for Fargate profile matching
-- IN PROGRESS — Phase 4: Sample Application + LoadBalancer Service + PostgreSQL with Replication
+- DONE — Phase 4: Sample Application + LoadBalancer Service + PostgreSQL with Replication
   - DONE — Copy python-fastapi-demo-docker source to applications/sample-app/
   - DONE — Create Dockerfile with SHA256-pinned python:3.9-slim-buster base image
   - DONE — Add sample-app ECR repository
   - DONE — Create Flux manifests (Deployment, LoadBalancer Service, Postgres StatefulSet, Secret, ConfigMap)
   - DONE — Wire sample-app module into dev environment kustomization
-  - PENDING — Upgrade PostgreSQL to bitnami with replication (primary + read replica)
-  - PENDING — Add ECR repository for bitnami/postgresql image
-  - PENDING — Add postgresql Dockerfile (bitnami/postgresql:17.6.0, SHA256-pinned)
-  - PENDING — Replace simple postgres.yaml with bitnami-rendered manifests (primary StatefulSet, read replica StatefulSet, Services, ConfigMap)
-  - PENDING — Update secret with bitnami-compatible credential format
-- PENDING — Phase 5: EBS/EFS Storage
-  - PENDING — IAM configuration to use EBS as storage
-  - PENDING — Install and configure CSI Driver
-  - PENDING — Persistent storage with PVC EBS CSI Driver
-  - PENDING — Persistent storage with ClaimTemplates
-  - PENDING — Configurations to use EFS PersistentVolumes
+  - DONE — Upgrade PostgreSQL to bitnami with replication (primary + read replica)
+  - DONE — Add ECR repository for bitnami/postgresql image (v18.3.0)
+  - DONE — Add postgresql Dockerfile (bitnami/postgresql:latest, SHA256-pinned)
+  - DONE — Replace simple postgres.yaml with bitnami-rendered manifests (primary StatefulSet, read replica StatefulSet, Services, PDBs, ServiceAccount, Secret)
+  - DONE — Update secret with bitnami-compatible credential format + init script simplified for bitnami
+- DONE — Phase 5: EBS/EFS Storage
+  - DONE — IRSA for EBS CSI driver (AmazonEBSCSIDriverPolicy)
+  - DONE — IRSA for EFS CSI driver (AmazonEFSCSIDriverPolicy)
+  - DONE — EBS CSI driver EKS addon (v1.43.0-eksbuild.1)
+  - DONE — EFS CSI driver EKS addon (v2.2.0-eksbuild.1)
+  - DONE — EFS filesystem with encryption + mount targets in private subnets + NFS security group
+  - DONE — gp3 StorageClass (default, encrypted, WaitForFirstConsumer)
+  - DONE — EFS StorageClass
+  - DONE — Wire aws-csi module into environment kustomization
 - DONE — Phase 6: Ingress Controller + ALB + kgateway + cert-manager + Domain/SSL
   - DONE — Create reusable IRSA module (aws/modules/eks-oidc-iam/)
   - DONE — ALB controller IRSA role with full IAM policy (aws/envs/eu-west-1/alb.tf)
@@ -303,6 +306,7 @@ Phases were executed out of order based on user direction:
 2. Phase 8 (ECR Integration) — done before Phases 4-7
 3. Phase 4 (Sample Application + LoadBalancer) — done after Phase 8
 4. Phase 6 (ALB + kgateway) — done before Phase 5 and 7
+5. Phase 4b (PostgreSQL bitnami replication) + Phase 5 (EBS/EFS Storage) — done together
 
 Each phase is independently deployable/undoable. Terraform `destroy` tears down AWS resources; `kubectl delete -k` removes Flux resources.
 
@@ -319,5 +323,168 @@ Phases are executed one at a time. After each phase, a commit message is suggest
 - Domain `code-si.com` with ACM cert in eu-west-1 (`arn:aws:acm:eu-west-1:228904764948:certificate/6868d04e-52c9-4b60-a374-1b028fa701eb`). Route53 ALB record gated by `alb_deployed` variable (set to `true` after ALB exists)
 - kgateway manifests adapted from `flux-admin-v2` reference — namespace changed from `support` to `kgateway`, images point to project ECR, replicas scaled to 1 for sample project
 - Fargate scheduling: kgateway runs entirely on Fargate (all 3 components are stateless Deployments with no hostNetwork/privileged/DaemonSet constraints). Sample-app FastAPI runs on Fargate; Postgres stays on managed nodes (Fargate does not support EBS PersistentVolumeClaims — only EFS is supported)
-- PostgreSQL upgrade: Using bitnami `postgresql` chart (v17.1.0, app v17.6.0) with `architecture: replication` — primary + read replica(s) using PostgreSQL native streaming replication. Chosen over `postgresql-ha` (Repmgr+Pgpool) for simplicity — manual failover is acceptable for a sample project. Source: `/Users/fawadmazhar/github/codes/k8s-references/charts/bitnami/postgresql/`. Helm templates rendered to plain manifests for Flux/Kustomize compatibility
-- Terraform plan: ~97 resources (17 ECR repos including postgresql, EKS cluster, 3 Fargate profiles, 2 node groups, IAM roles, Route53 zone)
+- PostgreSQL upgrade: Using bitnami `postgresql` chart (v17.1.0) with `architecture: replication` — primary + read replica using PostgreSQL native streaming replication. Image v18.3.0 (latest available, SHA256-pinned). Chosen over `postgresql-ha` (Repmgr+Pgpool) for simplicity. Source: `/Users/fawadmazhar/github/codes/k8s-references/charts/bitnami/postgresql/`. Helm templates rendered to plain manifests for Flux/Kustomize compatibility
+- EBS/EFS CSI: AWS managed policies (`AmazonEBSCSIDriverPolicy`, `AmazonEFSCSIDriverPolicy`) with IRSA. CSI drivers installed as EKS addons (conditionally, via version+role_arn variables). EFS filesystem encrypted with lifecycle policy (transition to IA after 7 days), mount targets in all private subnets, NFS security group referencing EKS node SG
+- Terraform plan: ~105 resources (17 ECR repos, EKS cluster with 5 addons, 3 Fargate profiles, 2 node groups, IAM roles, Route53 zone, EFS filesystem + mount targets + SG)
+
+## Deployment
+
+### Prerequisites
+- AWS CLI configured with `nlaclassic` profile
+- Terraform `~> 1.14.0`
+- kubectl
+- Docker running locally (for ECR image builds)
+- kustomize (for validation)
+
+### Virgin Deployment (First Time)
+
+A fresh deployment is a two-phase process because the Route53 ALB alias record depends on the ALB existing, which is created by the K8s ALB controller after it processes the Ingress resource.
+
+**Step 1 — Terraform (infrastructure + ECR images)**
+
+```bash
+cd aws/envs/eu-west-1
+
+terraform init
+terraform plan -out=tfplan
+terraform apply tfplan
+```
+
+This creates ~105 resources: IAM roles, EKS cluster (~15-20 min), node groups, Fargate profiles, ECR repos (builds+pushes all 17 images), Route53 zone, EFS filesystem, CSI driver addons. The `alb_deployed` variable defaults to `false`, so no Route53 ALB record is created yet.
+
+**Step 2 — Configure kubectl**
+
+```bash
+aws eks update-kubeconfig --name nlaclassic-eu-west-1-eks --region eu-west-1 --profile nlaclassic
+kubectl get nodes   # verify nodes are Ready
+```
+
+**Step 3 — Deploy Kubernetes resources (ordered)**
+
+Resources must be applied in order due to dependencies (CRDs before instances, cert-manager before ALB controller).
+
+```bash
+# 1. Base namespaces
+kubectl apply -k flux/base/
+
+# 2. StorageClasses (gp3 default + EFS)
+kubectl apply -k flux/modules/aws-csi/
+
+# 3. Fargate logging
+kubectl apply -k flux/modules/aws-logging/
+
+# 4. cert-manager (wait for pods Ready — ALB controller depends on its webhooks)
+kubectl apply -k flux/envs/eu-west-1/cert-manager/
+kubectl -n cert-manager rollout status deployment/cert-manager
+kubectl -n cert-manager rollout status deployment/cert-manager-webhook
+kubectl -n cert-manager rollout status deployment/cert-manager-cainjector
+
+# 5. ALB controller (depends on cert-manager for webhook TLS)
+kubectl apply -k flux/modules/aws-load-balancer-controller/
+kubectl apply -f flux/envs/eu-west-1/cluster-information-configmap.yaml
+kubectl -n kube-system rollout status deployment/aws-load-balancer-controller
+
+# 6. kgateway (API gateway + Ingress → creates ALB)
+kubectl apply -k flux/envs/eu-west-1/kgateway/
+kubectl -n kgateway rollout status deployment/gloo
+kubectl -n kgateway rollout status deployment/gateway-proxy
+
+# 7. Sample app (FastAPI + PostgreSQL with replication)
+kubectl apply -k flux/modules/sample-app/
+kubectl -n sample-app rollout status deployment/fastapi-deployment
+kubectl -n sample-app rollout status statefulset/postgresql-primary
+kubectl -n sample-app rollout status statefulset/postgresql-read
+```
+
+**Step 4 — Verify ALB is created**
+
+Wait for the ALB controller to provision the load balancer from the Ingress resource:
+
+```bash
+kubectl -n kgateway get ingress kgateway-alb
+# Wait until ADDRESS column shows an ALB DNS name
+```
+
+**Step 5 — Terraform phase 2 (Route53 ALB record)**
+
+Once the ALB exists, create the Route53 alias record:
+
+```bash
+cd aws/envs/eu-west-1
+
+terraform plan -var="alb_deployed=true" -out=tfplan
+terraform apply tfplan
+```
+
+This creates the `books.code-si.com` → ALB alias record.
+
+**Step 6 — DNS configuration**
+
+If `code-si.com` is registered with an external registrar, update the NS records at the registrar to point to the Route53 nameservers:
+
+```bash
+terraform output route53_nameservers
+```
+
+Copy the 4 nameserver values to the domain registrar's NS records.
+
+**Step 7 — Verify end-to-end**
+
+```bash
+curl https://books.code-si.com/
+# Should return FastAPI sample app response
+```
+
+Traffic flow: `books.code-si.com` → Route53 → ALB (HTTPS, TLS 1.3) → gateway-proxy (HTTP) → VirtualService → FastAPI
+
+### Normal Deployments (Subsequent Changes)
+
+For changes after the initial setup:
+
+**Terraform changes (AWS resources)**
+
+```bash
+cd aws/envs/eu-west-1
+
+terraform plan -var="alb_deployed=true" -out=tfplan
+# Review the plan
+terraform apply tfplan
+```
+
+Note: always pass `-var="alb_deployed=true"` after the ALB exists, otherwise Terraform will try to destroy the Route53 ALB record.
+
+**Kubernetes changes (Flux manifests)**
+
+```bash
+# Validate first
+kustomize build flux/envs/eu-west-1 > /dev/null
+
+# Apply the specific module that changed
+kubectl apply -k flux/modules/<changed-module>/
+# or apply the full environment
+kubectl apply -k flux/envs/eu-west-1/
+```
+
+**Application image updates**
+
+When updating application code or Dockerfiles:
+
+1. Update the `image_tag` in `aws/envs/eu-west-1/ecr.tf`
+2. Run `terraform apply` — the ECR module detects source hash changes and rebuilds/pushes
+3. Update the image tag in the corresponding Flux deployment manifest
+4. Apply the Kubernetes change: `kubectl apply -k flux/modules/<app>/`
+
+### Teardown
+
+Reverse order of deployment:
+
+```bash
+# 1. Remove Kubernetes resources
+kubectl delete -k flux/envs/eu-west-1/
+
+# 2. Destroy Terraform resources
+cd aws/envs/eu-west-1
+terraform destroy -var="alb_deployed=true"
+```
+
+Note: EKS cluster deletion takes ~10-15 minutes. ECR repos with images require `force_delete = true` (already configured in the ECR module).
