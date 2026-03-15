@@ -1,4 +1,4 @@
-## Tasks
+@tasks## Tasks
 
 - Setting up aws eks
 - iam cluster role
@@ -30,6 +30,7 @@
   - Use /Users/fawadmazhar/github/workshops/k8s/eks-developers-workshop/python-fastapi-demo-docker as a sample WebApp. Rename it as sample-web-app.
   - Use postgres related resources from /Users/fawadmazhar/github/codes/k8s-references/charts/bitnami 'postgresql' and 'postgresql-ha'
     - I would prefer a highly available postgres if it's easy to do
+  - Check /Users/fawadmazhar/github/codes/k8s-references/cloudnative-pg project for postgres. This is newer than bitnami one.
 - Flux
   - Create kubernenetes manifests for kgateway. Ensure it routes the / traffic to simple web app. A load balancer service which is connected with the aws application load balancer. Use /Users/fawadmazhar/ss/flux-admins/flux-admin-v2
  as reference project fAddeor kgateway. 

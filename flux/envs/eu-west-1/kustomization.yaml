@@ -5,6 +5,7 @@ resources:
   - ../../modules/aws-csi
   - ../../modules/aws-logging
   - ../../modules/aws-load-balancer-controller
+  - ../../modules/cloudnative-pg
   - ../../modules/sample-app
   - cert-manager
   - cluster-information-configmap.yaml

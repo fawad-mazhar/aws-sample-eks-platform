@@ -1,2 +1,0 @@
-FROM docker.io/bitnami/postgresql:latest@sha256:106cae6ba66dc1498dba57037b16d6d0f3470277bfcaf440860b1df2f967bf14
-# MULTIARCH

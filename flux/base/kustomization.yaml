@@ -3,6 +3,7 @@ kind: Kustomization
 resources:
   - aws-observability-namespace.yaml
   - cert-manager-namespace.yaml
+  - cnpg-system-namespace.yaml
   - fargate-namespace.yaml
   - kgateway-namespace.yaml
   - sample-app-namespace.yaml
