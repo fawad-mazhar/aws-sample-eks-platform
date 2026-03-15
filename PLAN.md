@@ -78,8 +78,9 @@ aws-sample-eks-platform/
 │   │   ├── cert-manager/        # cert-manager v1.19.2 CRDs, Deployments, Webhooks, self-signing ClusterIssuer
 │   │   ├── cluster-autoscaler/  # Phase 7
 │   │   ├── aws-logging/         # aws-logging ConfigMap for Fargate
+│   │   ├── cloudnative-pg/      # CloudNativePG operator v1.28.1 (CRDs, RBAC, Deployment, Webhooks)
 │   │   ├── kgateway/            # Gloo Gateway: CRDs, control plane, Envoy proxy
-│   │   └── sample-app/          # FastAPI app + Postgres with replication (ClusterIP service)
+│   │   └── sample-app/          # FastAPI app + CloudNativePG Cluster CR (ClusterIP service)
 │   └── envs/
 │       └── eu-west-1/
 │           ├── kustomization.yaml
@@ -87,10 +88,7 @@ aws-sample-eks-platform/
 │           ├── cluster-information-configmap.yaml
 │           └── kgateway/        # GatewayClass, Gateway, VirtualService, ALB Ingress
 ├── applications/
-│   ├── sample-app/
-│   │   ├── Dockerfile
-│   │   └── .dockerignore
-│   └── postgresql/
+│   └── sample-app/
 │       ├── Dockerfile
 │       └── .dockerignore
 ├── TASKS.md
@@ -175,6 +173,43 @@ Key details:
 - FastAPI app connects to primary service (same pattern as current `db` service, just renamed)
 - PostgreSQL native streaming replication (no Repmgr, no Pgpool)
 - Manual failover if primary fails (acceptable for sample project)
+- Still requires EBS CSI driver (Phase 5) for PVCs — Postgres cannot run on Fargate
+
+#### Phase 4c: Replace Bitnami PostgreSQL with CloudNativePG
+Replace the bitnami PostgreSQL StatefulSets (460 lines of hand-managed YAML) with CloudNativePG operator (CNCF Sandbox project). CloudNativePG manages PostgreSQL natively in Kubernetes via a `Cluster` CRD, providing automatic failover, synchronous replication, and rolling updates — all without external tools like Repmgr or Patroni.
+
+Source: `/Users/fawadmazhar/github/codes/k8s-references/cloudnative-pg` (v1.28.1)
+
+Flux (`flux/`):
+- `flux/modules/cloudnative-pg/`: CNPG operator v1.28.1 — CRDs (10), ServiceAccount, ClusterRoles, ClusterRoleBindings, Deployment, Service, ConfigMap (default monitoring queries), Mutating/Validating Webhooks. Operator image: `ghcr.io/cloudnative-pg/cloudnative-pg:1.28.1`
+- `flux/base/cnpg-system-namespace.yaml`: Namespace for CNPG operator
+- Replace `flux/modules/sample-app/postgres.yaml` with a single CNPG `Cluster` CR (~40 lines) replacing ~460 lines of bitnami manifests:
+  - 3 instances (1 primary + 2 replicas) with automatic failover
+  - PostgreSQL image: `ghcr.io/cloudnative-pg/postgresql:18.3`
+  - Bootstrap: database `bookstore`, owner `bookdbadmin`, init SQL via `postInitApplicationSQLRefs` referencing existing `db-init-script` ConfigMap
+  - Storage: gp3, 2Gi
+  - Unsupervised primary update strategy (auto-switchover during updates)
+  - Pod anti-affinity to spread across nodes
+- Update `flux/modules/sample-app/secret.yaml`:
+  - FastAPI connection string points to `postgresql-rw` (CNPG auto-generated read-write service)
+  - Add `postgresql-app-user` Secret (kubernetes.io/basic-auth) for CNPG bootstrap
+  - Add `postgresql-superuser` Secret (kubernetes.io/basic-auth) for superuser access
+- Keep `db-init-configmap.yaml` (referenced by Cluster CR's `postInitApplicationSQLRefs`)
+- Wire `cloudnative-pg` module into `flux/envs/eu-west-1/kustomization.yaml`
+
+Terraform (`aws/`):
+- Remove `postgresql` ECR repository (no longer needed — CNPG uses its own PostgreSQL image from ghcr.io)
+
+Applications:
+- Remove `applications/postgresql/` directory (Dockerfile no longer needed)
+
+Key details:
+- CNPG auto-generates services: `postgresql-rw` (primary), `postgresql-ro` (replicas), `postgresql-r` (all)
+- CNPG auto-generates secrets, TLS certs, PDBs, ServiceAccount
+- Automatic failover: operator detects primary failure, promotes best replica in seconds
+- 3 instances provides true HA with quorum — no single point of failure
+- No ECR mirroring needed — uses official CNPG PostgreSQL image from ghcr.io
+- Operator watches all namespaces — Cluster CR in `sample-app` namespace managed by operator in `cnpg-system`
 - Still requires EBS CSI driver (Phase 5) for PVCs — Postgres cannot run on Fargate
 
 ### Phase 5: EBS/EFS Storage
@@ -264,6 +299,13 @@ Status: **PENDING** | **IN PROGRESS** | **DONE**
   - DONE — Add postgresql Dockerfile (bitnami/postgresql:latest, SHA256-pinned)
   - DONE — Replace simple postgres.yaml with bitnami-rendered manifests (primary StatefulSet, read replica StatefulSet, Services, PDBs, ServiceAccount, Secret)
   - DONE — Update secret with bitnami-compatible credential format + init script simplified for bitnami
+  - DONE — Replace bitnami PostgreSQL with CloudNativePG operator (v1.28.1)
+  - DONE — Add CNPG operator module (CRDs, RBAC, Deployment, Webhooks)
+  - DONE — Add cnpg-system namespace
+  - DONE — Replace 460-line bitnami manifests with 40-line CNPG Cluster CR (3 instances, auto failover)
+  - DONE — Update secrets for CNPG (app-user + superuser basic-auth format)
+  - DONE — Update FastAPI connection string to postgresql-rw (CNPG auto-generated service)
+  - DONE — Remove bitnami postgresql ECR repo and Dockerfile (CNPG uses ghcr.io image)
 - DONE — Phase 5: EBS/EFS Storage
   - DONE — IRSA for EBS CSI driver (AmazonEBSCSIDriverPolicy)
   - DONE — IRSA for EFS CSI driver (AmazonEFSCSIDriverPolicy)
@@ -307,6 +349,7 @@ Phases were executed out of order based on user direction:
 3. Phase 4 (Sample Application + LoadBalancer) — done after Phase 8
 4. Phase 6 (ALB + kgateway) — done before Phase 5 and 7
 5. Phase 4b (PostgreSQL bitnami replication) + Phase 5 (EBS/EFS Storage) — done together
+6. Phase 4c (CloudNativePG) — replaces bitnami PostgreSQL with CNPG operator
 
 Each phase is independently deployable/undoable. Terraform `destroy` tears down AWS resources; `kubectl delete -k` removes Flux resources.
 
@@ -322,10 +365,10 @@ Phases are executed one at a time. After each phase, a commit message is suggest
 - ALB controller uses `public.ecr.aws/eks/aws-load-balancer-controller:v2.12.0` (public ECR). Can be mirrored to project ECR for production use
 - Domain `code-si.com` with ACM cert in eu-west-1 (`arn:aws:acm:eu-west-1:228904764948:certificate/6868d04e-52c9-4b60-a374-1b028fa701eb`). Route53 ALB record gated by `alb_deployed` variable (set to `true` after ALB exists)
 - kgateway manifests adapted from `flux-admin-v2` reference — namespace changed from `support` to `kgateway`, images point to project ECR, replicas scaled to 1 for sample project
-- Fargate scheduling: kgateway runs entirely on Fargate (all 3 components are stateless Deployments with no hostNetwork/privileged/DaemonSet constraints). Sample-app FastAPI runs on Fargate; Postgres stays on managed nodes (Fargate does not support EBS PersistentVolumeClaims — only EFS is supported)
-- PostgreSQL upgrade: Using bitnami `postgresql` chart (v17.1.0) with `architecture: replication` — primary + read replica using PostgreSQL native streaming replication. Image v18.3.0 (latest available, SHA256-pinned). Chosen over `postgresql-ha` (Repmgr+Pgpool) for simplicity. Source: `/Users/fawadmazhar/github/codes/k8s-references/charts/bitnami/postgresql/`. Helm templates rendered to plain manifests for Flux/Kustomize compatibility
+- Fargate scheduling: kgateway runs entirely on Fargate (all 3 components are stateless Deployments with no hostNetwork/privileged/DaemonSet constraints). Sample-app FastAPI runs on Fargate; PostgreSQL (CloudNativePG) stays on managed nodes (Fargate does not support EBS PersistentVolumeClaims — only EFS is supported). CNPG operator runs in `cnpg-system` namespace on managed nodes
+- PostgreSQL: Using CloudNativePG operator v1.28.1 (CNCF Sandbox project) — replaces bitnami StatefulSets with a single `Cluster` CRD. 3 instances (1 primary + 2 replicas) with automatic failover, synchronous replication, and rolling updates. PostgreSQL image `ghcr.io/cloudnative-pg/postgresql:18.3`. Source: `/Users/fawadmazhar/github/codes/k8s-references/cloudnative-pg/`. Previous bitnami approach replaced due to lack of automatic failover and high manifest complexity (460 lines vs 40 lines)
 - EBS/EFS CSI: AWS managed policies (`AmazonEBSCSIDriverPolicy`, `AmazonEFSCSIDriverPolicy`) with IRSA. CSI drivers installed as EKS addons (conditionally, via version+role_arn variables). EFS filesystem encrypted with lifecycle policy (transition to IA after 7 days), mount targets in all private subnets, NFS security group referencing EKS node SG
-- Terraform plan: ~105 resources (17 ECR repos, EKS cluster with 5 addons, 3 Fargate profiles, 2 node groups, IAM roles, Route53 zone, EFS filesystem + mount targets + SG)
+- Terraform plan: ~105 resources (16 ECR repos, EKS cluster with 5 addons, 3 Fargate profiles, 2 node groups, IAM roles, Route53 zone, EFS filesystem + mount targets + SG)
 
 ## Deployment
 
@@ -384,16 +427,20 @@ kubectl apply -k flux/modules/aws-load-balancer-controller/
 kubectl apply -f flux/envs/eu-west-1/cluster-information-configmap.yaml
 kubectl -n kube-system rollout status deployment/aws-load-balancer-controller
 
-# 6. kgateway (API gateway + Ingress → creates ALB)
+# 6. CloudNativePG operator (wait for controller Ready — manages PostgreSQL Cluster CRs)
+kubectl apply -k flux/modules/cloudnative-pg/
+kubectl -n cnpg-system rollout status deployment/cnpg-controller-manager
+
+# 7. kgateway (API gateway + Ingress → creates ALB)
 kubectl apply -k flux/envs/eu-west-1/kgateway/
 kubectl -n kgateway rollout status deployment/gloo
 kubectl -n kgateway rollout status deployment/gateway-proxy
 
-# 7. Sample app (FastAPI + PostgreSQL with replication)
+# 8. Sample app (FastAPI + CloudNativePG PostgreSQL cluster)
 kubectl apply -k flux/modules/sample-app/
 kubectl -n sample-app rollout status deployment/fastapi-deployment
-kubectl -n sample-app rollout status statefulset/postgresql-primary
-kubectl -n sample-app rollout status statefulset/postgresql-read
+# Wait for PostgreSQL cluster to be ready (3 instances)
+kubectl -n sample-app wait --for=condition=Ready cluster/postgresql --timeout=300s
 ```
 
 **Step 4 — Verify ALB is created**

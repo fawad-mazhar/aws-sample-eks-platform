@@ -1,4 +1,4 @@
-# AWS Sample EKS Platform - Distributed Job Orchestration System
+# AWS Sample EKS Platform
 
 
 
