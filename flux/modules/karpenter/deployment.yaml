@@ -48,6 +48,9 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/name: karpenter
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
     spec:
       automountServiceAccountToken: true
       serviceAccountName: karpenter

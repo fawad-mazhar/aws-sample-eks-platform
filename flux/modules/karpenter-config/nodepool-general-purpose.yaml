@@ -31,5 +31,5 @@ spec:
     memory: "400Gi"
   disruption:
     consolidationPolicy: WhenEmptyOrUnderutilized
-    consolidateAfter: "300s"
+    consolidateAfter: "5m"
   weight: 10
