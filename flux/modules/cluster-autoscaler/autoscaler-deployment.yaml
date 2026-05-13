@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cluster-autoscaler
+  namespace: kube-system
+  labels:
+    app: cluster-autoscaler
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cluster-autoscaler
+  template:
+    metadata:
+      labels:
+        app: cluster-autoscaler
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8085"
+    spec:
+      nodeSelector:
+        role: platform
+      serviceAccountName: cluster-autoscaler
+      securityContext:
+        runAsGroup: 10070
+        runAsUser: 10070
+      containers:
+        - image: 228904764948.dkr.ecr.eu-west-1.amazonaws.com/nlaclassic-eu-west-1/cluster-autoscaler:v1.34.2
+          name: cluster-autoscaler
+          securityContext:
+            readOnlyRootFilesystem: true
+          resources:
+            limits:
+              cpu: 150m
+              memory: 2048Mi
+              ephemeral-storage: 100Mi
+            requests:
+              cpu: 100m
+              memory: 300Mi
+              ephemeral-storage: 10Mi
+          command:
+            - ./cluster-autoscaler
+            - --v=0
+            - --stderrthreshold=info
+            - --cloud-provider=aws
+            - --scan-interval=5s
+            - --scale-down-unneeded-time=10m
+            - --skip-nodes-with-local-storage=false
+            - --expander=least-waste
+            - --balance-similar-node-groups=true
+            - --node-group-auto-discovery=asg:tag=k8s.io/cluster-autoscaler/enabled,k8s.io/cluster-autoscaler/$(CLUSTER_NAME)
+            - --logtostderr=true
+          env:
+            - name: CLUSTER_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: cluster-information
+                  key: cluster-name
+          volumeMounts:
+            - name: ssl-certs
+              mountPath: /etc/ssl/certs/ca-certificates.crt
+              readOnly: true
+          imagePullPolicy: "Always"
+      volumes:
+        - name: ssl-certs
+          hostPath:
+            path: "/etc/ssl/certs/ca-bundle.crt"

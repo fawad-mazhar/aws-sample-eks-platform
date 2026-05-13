@@ -243,15 +243,20 @@ Flux (`flux/`):
 
 Traffic flow: Client → `books.code-si.com` (Route53) → AWS ALB (HTTPS, ACM cert) → gateway-proxy (Envoy, HTTP) → VirtualService routing → sample-app Service (ClusterIP) → FastAPI pods
 
-### Phase 7: Scaling — Cluster Autoscaler + Karpenter
+### Phase 7: Scaling — Cluster Autoscaler (Karpenter deferred)
 Terraform (`aws/`):
-- `aws/modules/eks-oidc-iam/`: IRSA role for cluster-autoscaler (autoscaling describe/set/terminate, ec2 describe, eks describe, scoped by cluster tag)
-- `aws/modules/eks-karpenter/`: Karpenter controller IRSA role (ec2 fleet/launch template/instances, ssm parameters, iam PassRole, eks describe) + Karpenter node role (EKSWorkerNodePolicy, ECR read, CNI) + instance profile
+- `aws/envs/eu-west-1/autoscaler.tf`: IRSA role for cluster-autoscaler via `eks-oidc-iam` module. IAM policy: autoscaling describe (5 actions), ec2 describe (3 actions), eks:DescribeNodegroup as read-only; autoscaling:SetDesiredCapacity + TerminateInstanceInAutoScalingGroup scoped by `k8s.io/cluster-autoscaler/enabled` tag condition
+- `aws/envs/eu-west-1/ecr.tf`: cluster-autoscaler ECR repository (v1.34.2)
+
+Applications:
+- `applications/cluster-autoscaler/Dockerfile`: FROM `registry.k8s.io/autoscaling/cluster-autoscaler:v1.34.2` (SHA256-pinned, from `base-images` reference)
 
 Flux (`flux/`):
-- `flux/modules/cluster-autoscaler/`: Deployment, RBAC (ClusterRole, Role, bindings), priority-expander ConfigMap, cluster-name ConfigMap
-- For Karpenter: NodePool and EC2NodeClass CRDs (deployed via Flux after Karpenter Helm chart or manifests)
+- `flux/modules/cluster-autoscaler/autoscaler-deployment.yaml`: Deployment in kube-system, 1 replica, `role: platform` nodeSelector, ECR image, `--cloud-provider=aws`, `--expander=least-waste`, `--balance-similar-node-groups=true`, `--node-group-auto-discovery` by ASG tags, `readOnlyRootFilesystem`, `runAsUser: 10070`. Cluster name from existing `cluster-information` ConfigMap (reused from ALB controller, avoids duplicate ConfigMap)
+- `flux/modules/cluster-autoscaler/autoscaler-rbac.yaml`: ServiceAccount (IRSA-annotated), ClusterRole, Role (kube-system), ClusterRoleBinding, RoleBinding — from `flux-admin-v2` reference
 - Observability: Prometheus scrape annotations on autoscaler pods (`prometheus.io/scrape: "true"`, `prometheus.io/port: "8085"`)
+
+Karpenter deferred to a future phase per user direction.
 
 ### Phase 8: ECR Integration
 Terraform (`aws/`):
@@ -329,10 +334,13 @@ Status: **PENDING** | **IN PROGRESS** | **DONE**
   - DONE — Route53 hosted zone for code-si.com + conditional ALB alias for books.code-si.com
   - DONE — ALB Ingress updated: HTTPS with ACM cert, HTTP→HTTPS redirect, host books.code-si.com
   - DONE — VirtualService updated: domain books.code-si.com instead of wildcard
-- PENDING — Phase 7: Scaling — Cluster Autoscaler + Karpenter
-  - PENDING — Cluster Autoscaler for NodeGroups / Karpenter
-  - PENDING — IAM Policy and Role for Cluster AutoScaler
-  - PENDING — Observability for Cluster Autoscaler
+- DONE — Phase 7: Scaling — Cluster Autoscaler (Karpenter deferred)
+  - DONE — Cluster Autoscaler IRSA role (aws/envs/eu-west-1/autoscaler.tf)
+  - DONE — Cluster Autoscaler ECR repository + Dockerfile (v1.34.2, from base-images reference)
+  - DONE — Cluster Autoscaler Flux module (Deployment, ServiceAccount, RBAC — from flux-admin-v2 reference)
+  - DONE — Prometheus scrape annotations for observability
+  - DONE — Wired into flux/envs/eu-west-1/kustomization.yaml
+  - PENDING — Karpenter (deferred to future phase)
 - DONE — Phase 8: ECR Integration
   - DONE — Create ECR module (scanning, lifecycle, local-exec build/push)
   - DONE — Add nats and nats-box Dockerfiles (from base-images reference)
@@ -350,6 +358,7 @@ Phases were executed out of order based on user direction:
 4. Phase 6 (ALB + kgateway) — done before Phase 5 and 7
 5. Phase 4b (PostgreSQL bitnami replication) + Phase 5 (EBS/EFS Storage) — done together
 6. Phase 4c (CloudNativePG) — replaces bitnami PostgreSQL with CNPG operator
+7. Phase 7 (Cluster Autoscaler) — Karpenter deferred
 
 Each phase is independently deployable/undoable. Terraform `destroy` tears down AWS resources; `kubectl delete -k` removes Flux resources.
 
@@ -368,7 +377,8 @@ Phases are executed one at a time. After each phase, a commit message is suggest
 - Fargate scheduling: kgateway runs entirely on Fargate (all 3 components are stateless Deployments with no hostNetwork/privileged/DaemonSet constraints). Sample-app FastAPI runs on Fargate; PostgreSQL (CloudNativePG) stays on managed nodes (Fargate does not support EBS PersistentVolumeClaims — only EFS is supported). CNPG operator runs in `cnpg-system` namespace on managed nodes
 - PostgreSQL: Using CloudNativePG operator v1.28.1 (CNCF Sandbox project) — replaces bitnami StatefulSets with a single `Cluster` CRD. 3 instances (1 primary + 2 replicas) with automatic failover, synchronous replication, and rolling updates. PostgreSQL image `ghcr.io/cloudnative-pg/postgresql:18.3`. Source: `/Users/fawadmazhar/github/codes/k8s-references/cloudnative-pg/`. Previous bitnami approach replaced due to lack of automatic failover and high manifest complexity (460 lines vs 40 lines)
 - EBS/EFS CSI: AWS managed policies (`AmazonEBSCSIDriverPolicy`, `AmazonEFSCSIDriverPolicy`) with IRSA. CSI drivers installed as EKS addons (conditionally, via version+role_arn variables). EFS filesystem encrypted with lifecycle policy (transition to IA after 7 days), mount targets in all private subnets, NFS security group referencing EKS node SG
-- Terraform plan: ~105 resources (16 ECR repos, EKS cluster with 5 addons, 3 Fargate profiles, 2 node groups, IAM roles, Route53 zone, EFS filesystem + mount targets + SG)
+- Cluster Autoscaler: v1.34.2 from `base-images` reference, image mirrored to project ECR. Runs on `platform` node group (`role: platform`). Uses `cluster-information` ConfigMap (shared with ALB controller) for cluster name. ASG auto-discovery via existing `k8s.io/cluster-autoscaler/enabled` + `k8s.io/cluster-autoscaler/<cluster-name>` tags on managed node groups. Write permissions (SetDesiredCapacity, TerminateInstanceInAutoScalingGroup) scoped by tag condition
+- Terraform plan: ~108 resources (17 ECR repos, EKS cluster with 5 addons, 3 Fargate profiles, 2 node groups, IAM roles incl. cluster-autoscaler IRSA, Route53 zone, EFS filesystem + mount targets + SG)
 
 ## Deployment
 
@@ -393,7 +403,7 @@ terraform plan -out=tfplan
 terraform apply tfplan
 ```
 
-This creates ~105 resources: IAM roles, EKS cluster (~15-20 min), node groups, Fargate profiles, ECR repos (builds+pushes all 17 images), Route53 zone, EFS filesystem, CSI driver addons. The `alb_deployed` variable defaults to `false`, so no Route53 ALB record is created yet.
+This creates ~108 resources: IAM roles (incl. cluster-autoscaler IRSA), EKS cluster (~15-20 min), node groups, Fargate profiles, ECR repos (builds+pushes all 18 images), Route53 zone, EFS filesystem, CSI driver addons. The `alb_deployed` variable defaults to `false`, so no Route53 ALB record is created yet.
 
 **Step 2 — Configure kubectl**
 
@@ -422,7 +432,11 @@ kubectl -n cert-manager rollout status deployment/cert-manager
 kubectl -n cert-manager rollout status deployment/cert-manager-webhook
 kubectl -n cert-manager rollout status deployment/cert-manager-cainjector
 
-# 5. ALB controller (depends on cert-manager for webhook TLS)
+# 5. Cluster Autoscaler
+kubectl apply -k flux/modules/cluster-autoscaler/
+kubectl -n kube-system rollout status deployment/cluster-autoscaler
+
+# 6. ALB controller (depends on cert-manager for webhook TLS)
 kubectl apply -k flux/modules/aws-load-balancer-controller/
 kubectl apply -f flux/envs/eu-west-1/cluster-information-configmap.yaml
 kubectl -n kube-system rollout status deployment/aws-load-balancer-controller

@@ -66,6 +66,10 @@ output "efs_file_system_id" {
   value = aws_efs_file_system.this.id
 }
 
+output "cluster_autoscaler_role_arn" {
+  value = module.cluster_autoscaler_irsa.role_arn
+}
+
 output "kubeconfig_command" {
   value = "aws eks update-kubeconfig --name ${module.eks_cluster.cluster_name} --region ${var.region} --profile nlaclassic"
 }

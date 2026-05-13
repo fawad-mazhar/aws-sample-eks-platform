@@ -48,6 +48,9 @@ locals {
     sample-app = {
       image_tag = "1.0.0"
     }
+    cluster-autoscaler = {
+      image_tag = "v1.34.2"
+    }
   }
 }
 
