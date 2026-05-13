@@ -1,0 +1,175 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: karpenter
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: karpenter
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: karpenter
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: karpenter
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: karpenter
+spec:
+  type: ClusterIP
+  ports:
+    - name: http-metrics
+      port: 8080
+      targetPort: http-metrics
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: karpenter
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: karpenter
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: karpenter
+spec:
+  replicas: 1
+  revisionHistoryLimit: 10
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: karpenter
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: karpenter
+    spec:
+      automountServiceAccountToken: true
+      serviceAccountName: karpenter
+      securityContext:
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      priorityClassName: "system-cluster-critical"
+      dnsPolicy: ClusterFirst
+      nodeSelector:
+        role: platform
+      containers:
+        - name: controller
+          securityContext:
+            privileged: false
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            capabilities:
+              drop:
+                - ALL
+          image: 228904764948.dkr.ecr.eu-west-1.amazonaws.com/nlaclassic-eu-west-1/karpenter:1.9.0
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: KUBERNETES_MIN_VERSION
+              value: "1.19.0-0"
+            - name: KARPENTER_SERVICE
+              value: karpenter
+            - name: LOG_LEVEL
+              value: "info"
+            - name: LOG_OUTPUT_PATHS
+              value: "stdout"
+            - name: LOG_ERROR_OUTPUT_PATHS
+              value: "stderr"
+            - name: METRICS_PORT
+              value: "8080"
+            - name: HEALTH_PROBE_PORT
+              value: "8081"
+            - name: SYSTEM_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: CPU_REQUESTS
+              valueFrom:
+                resourceFieldRef:
+                  containerName: controller
+                  divisor: 1m
+                  resource: requests.cpu
+            - name: MEMORY_LIMIT
+              valueFrom:
+                resourceFieldRef:
+                  containerName: controller
+                  divisor: "0"
+                  resource: limits.memory
+            - name: FEATURE_GATES
+              value: "ReservedCapacity=true,SpotToSpotConsolidation=false,NodeRepair=false,NodeOverlay=false,StaticCapacity=false"
+            - name: BATCH_MAX_DURATION
+              value: "10s"
+            - name: BATCH_IDLE_DURATION
+              value: "1s"
+            - name: PREFERENCE_POLICY
+              value: "Respect"
+            - name: MIN_VALUES_POLICY
+              value: "Strict"
+            - name: CLUSTER_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: cluster-information
+                  key: cluster-name
+            - name: CLUSTER_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  name: cluster-information
+                  key: cluster-endpoint
+            - name: VM_MEMORY_OVERHEAD_PERCENT
+              value: "0.075"
+            - name: INTERRUPTION_QUEUE
+              valueFrom:
+                configMapKeyRef:
+                  name: cluster-information
+                  key: karpenter-queue
+            - name: RESERVED_ENIS
+              value: "0"
+            - name: IGNORE_DRA_REQUESTS
+              value: "true"
+          resources:
+            limits:
+              cpu: 200m
+              memory: 512Mi
+              ephemeral-storage: 100Mi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+              ephemeral-storage: 10Mi
+          ports:
+            - name: http-metrics
+              containerPort: 8080
+              protocol: TCP
+            - name: http
+              containerPort: 8081
+              protocol: TCP
+          livenessProbe:
+            initialDelaySeconds: 30
+            timeoutSeconds: 30
+            httpGet:
+              path: /healthz
+              port: http
+          readinessProbe:
+            initialDelaySeconds: 5
+            timeoutSeconds: 30
+            httpGet:
+              path: /readyz
+              port: http
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: karpenter.sh/nodepool
+                    operator: DoesNotExist
+      tolerations:
+        - key: CriticalAddonsOnly
+          operator: Exists

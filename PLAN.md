@@ -256,7 +256,18 @@ Flux (`flux/`):
 - `flux/modules/cluster-autoscaler/autoscaler-rbac.yaml`: ServiceAccount (IRSA-annotated), ClusterRole, Role (kube-system), ClusterRoleBinding, RoleBinding — from `flux-admin-v2` reference
 - Observability: Prometheus scrape annotations on autoscaler pods (`prometheus.io/scrape: "true"`, `prometheus.io/port: "8085"`)
 
-Karpenter deferred to a future phase per user direction.
+#### Phase 7b: Karpenter
+Terraform (`aws/`):
+- `aws/envs/eu-west-1/karpenter.tf`: `terraform-aws-modules/eks/aws//modules/karpenter` v21.15.1 submodule — controller IAM role (IRSA via `iam_role_override_assume_policy_documents`), node IAM role (`AmazonEKSWorkerNodePolicy`, `AmazonEKS_CNI_Policy`, `AmazonEC2ContainerRegistryReadOnly`, `AmazonSSMManagedInstanceCore`), SQS interruption queue, 4 EventBridge rules, EKS access entry. Subnet + node SG tagged with `karpenter.sh/discovery` via `aws_ec2_tag`
+- `aws/envs/eu-west-1/ecr.tf`: Karpenter controller ECR repository (v1.9.0)
+
+Applications:
+- `applications/karpenter/Dockerfile`: FROM `public.ecr.aws/karpenter/controller:1.9.0`
+
+Flux (`flux/`):
+- `flux/modules/karpenter-crds/`: Karpenter CRDs (NodePool, NodeClaim, EC2NodeClass) rendered from `karpenter-crd` Helm chart v1.9.0
+- `flux/modules/karpenter/`: Controller Deployment (1 replica, `role: platform` nodeSelector, ECR image, IRSA ServiceAccount), PDB, Service, RBAC (3 ClusterRoles, 2 Roles, bindings). Cluster config via `cluster-information` ConfigMap (`cluster-endpoint`, `karpenter-queue` keys added)
+- `flux/modules/karpenter-config/`: EC2NodeClass (`default` — AL2023, gp3 50Gi, discovery tags), NodePool (`general-purpose` — m/c/r gen5+, on-demand, 100 vCPU / 400Gi limits, consolidation after 5m), inflate test Deployment (0 replicas, pause container, 1 vCPU + 1.5Gi per pod)
 
 ### Phase 8: ECR Integration
 Terraform (`aws/`):
@@ -334,13 +345,18 @@ Status: **PENDING** | **IN PROGRESS** | **DONE**
   - DONE — Route53 hosted zone for code-si.com + conditional ALB alias for books.code-si.com
   - DONE — ALB Ingress updated: HTTPS with ACM cert, HTTP→HTTPS redirect, host books.code-si.com
   - DONE — VirtualService updated: domain books.code-si.com instead of wildcard
-- DONE — Phase 7: Scaling — Cluster Autoscaler (Karpenter deferred)
+- DONE — Phase 7: Scaling — Cluster Autoscaler + Karpenter
   - DONE — Cluster Autoscaler IRSA role (aws/envs/eu-west-1/autoscaler.tf)
   - DONE — Cluster Autoscaler ECR repository + Dockerfile (v1.34.2, from base-images reference)
   - DONE — Cluster Autoscaler Flux module (Deployment, ServiceAccount, RBAC — from flux-admin-v2 reference)
   - DONE — Prometheus scrape annotations for observability
   - DONE — Wired into flux/envs/eu-west-1/kustomization.yaml
-  - PENDING — Karpenter (deferred to future phase)
+  - DONE — Karpenter submodule (v21.15.1) with IRSA, SQS, EventBridge, subnet/SG tags
+  - DONE — Karpenter ECR repository + Dockerfile (v1.9.0)
+  - DONE — Karpenter CRDs module (NodePool, NodeClaim, EC2NodeClass)
+  - DONE — Karpenter controller Flux module (Deployment, RBAC, PDB, Service)
+  - DONE — EC2NodeClass (default) + NodePool (general-purpose) + inflate test Deployment
+  - DONE — cluster-information ConfigMap extended with cluster-endpoint + karpenter-queue
 - DONE — Phase 8: ECR Integration
   - DONE — Create ECR module (scanning, lifecycle, local-exec build/push)
   - DONE — Add nats and nats-box Dockerfiles (from base-images reference)
@@ -358,7 +374,7 @@ Phases were executed out of order based on user direction:
 4. Phase 6 (ALB + kgateway) — done before Phase 5 and 7
 5. Phase 4b (PostgreSQL bitnami replication) + Phase 5 (EBS/EFS Storage) — done together
 6. Phase 4c (CloudNativePG) — replaces bitnami PostgreSQL with CNPG operator
-7. Phase 7 (Cluster Autoscaler) — Karpenter deferred
+7. Phase 7 (Cluster Autoscaler + Karpenter)
 
 Each phase is independently deployable/undoable. Terraform `destroy` tears down AWS resources; `kubectl delete -k` removes Flux resources.
 
@@ -378,7 +394,8 @@ Phases are executed one at a time. After each phase, a commit message is suggest
 - PostgreSQL: Using CloudNativePG operator v1.28.1 (CNCF Sandbox project) — replaces bitnami StatefulSets with a single `Cluster` CRD. 3 instances (1 primary + 2 replicas) with automatic failover, synchronous replication, and rolling updates. PostgreSQL image `ghcr.io/cloudnative-pg/postgresql:18.3`. Source: `/Users/fawadmazhar/github/codes/k8s-references/cloudnative-pg/`. Previous bitnami approach replaced due to lack of automatic failover and high manifest complexity (460 lines vs 40 lines)
 - EBS/EFS CSI: AWS managed policies (`AmazonEBSCSIDriverPolicy`, `AmazonEFSCSIDriverPolicy`) with IRSA. CSI drivers installed as EKS addons (conditionally, via version+role_arn variables). EFS filesystem encrypted with lifecycle policy (transition to IA after 7 days), mount targets in all private subnets, NFS security group referencing EKS node SG
 - Cluster Autoscaler: v1.34.2 from `base-images` reference, image mirrored to project ECR. Runs on `platform` node group (`role: platform`). Uses `cluster-information` ConfigMap (shared with ALB controller) for cluster name. ASG auto-discovery via existing `k8s.io/cluster-autoscaler/enabled` + `k8s.io/cluster-autoscaler/<cluster-name>` tags on managed node groups. Write permissions (SetDesiredCapacity, TerminateInstanceInAutoScalingGroup) scoped by tag condition
-- Terraform plan: ~108 resources (17 ECR repos, EKS cluster with 5 addons, 3 Fargate profiles, 2 node groups, IAM roles incl. cluster-autoscaler IRSA, Route53 zone, EFS filesystem + mount targets + SG)
+- Karpenter: v1.9.0 controller from public ECR, mirrored to project ECR. Uses `terraform-aws-modules/eks/aws//modules/karpenter` v21.15.1 submodule with IRSA override (not Pod Identity). Controller runs on `platform` managed node group. EC2NodeClass discovers subnets/SGs via `karpenter.sh/discovery` tags. General-purpose NodePool: m/c/r gen5+ on-demand, 100 vCPU / 400Gi limits, `WhenEmptyOrUnderutilized` consolidation. Inflate test Deployment (replicas: 0) for validation. Coexists with Cluster Autoscaler — CA manages ASG-based node groups, Karpenter manages its own EC2 instances
+- Terraform plan: ~130 resources (19 ECR repos, EKS cluster with 5 addons, 3 Fargate profiles, 2 node groups, IAM roles incl. cluster-autoscaler + karpenter IRSA, SQS queue, EventBridge rules, Route53 zone, EFS filesystem + mount targets + SG, subnet/SG tags)
 
 ## Deployment
 
@@ -435,6 +452,12 @@ kubectl -n cert-manager rollout status deployment/cert-manager-cainjector
 # 5. Cluster Autoscaler
 kubectl apply -k flux/modules/cluster-autoscaler/
 kubectl -n kube-system rollout status deployment/cluster-autoscaler
+
+# 5b. Karpenter (CRDs first, then controller, then config)
+kubectl apply -k flux/modules/karpenter-crds/
+kubectl apply -k flux/modules/karpenter/
+kubectl -n kube-system rollout status deployment/karpenter
+kubectl apply -k flux/modules/karpenter-config/
 
 # 6. ALB controller (depends on cert-manager for webhook TLS)
 kubectl apply -k flux/modules/aws-load-balancer-controller/

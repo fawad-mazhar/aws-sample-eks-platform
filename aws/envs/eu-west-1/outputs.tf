@@ -70,6 +70,18 @@ output "cluster_autoscaler_role_arn" {
   value = module.cluster_autoscaler_irsa.role_arn
 }
 
+output "karpenter_controller_role_arn" {
+  value = module.karpenter.iam_role_arn
+}
+
+output "karpenter_node_role_name" {
+  value = module.karpenter.node_iam_role_name
+}
+
+output "karpenter_queue_name" {
+  value = module.karpenter.queue_name
+}
+
 output "kubeconfig_command" {
   value = "aws eks update-kubeconfig --name ${module.eks_cluster.cluster_name} --region ${var.region} --profile nlaclassic"
 }
