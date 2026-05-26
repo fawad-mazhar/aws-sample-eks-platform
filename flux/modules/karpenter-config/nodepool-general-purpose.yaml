@@ -9,6 +9,9 @@ spec:
         node.kubernetes.io/workload-type: general-purpose
         provisioner: karpenter
     spec:
+      taints:
+        - key: karpenter.sh/provisioned
+          effect: NoSchedule
       nodeClassRef:
         group: karpenter.k8s.aws
         kind: EC2NodeClass

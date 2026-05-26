@@ -14,6 +14,10 @@ spec:
     spec:
       nodeSelector:
         provisioner: karpenter
+      tolerations:
+        - key: karpenter.sh/provisioned
+          operator: Exists
+          effect: NoSchedule
       containers:
         - name: inflate
           image: public.ecr.aws/eks-distro/kubernetes/pause:3.7
