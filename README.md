@@ -7,8 +7,6 @@ aws-sample-eks-platform/
 ├── flux/           # Kubernetes manifests (Kustomize)
 ├── applications/   # Dockerfiles for images published to ECR
 ├── bin/            # Helper scripts (build, validate, plan)
-├── PLAN.md
-├── TASKS.md
 └── README.md
 ```
 
@@ -216,6 +214,20 @@ terraform destroy -var="alb_deployed=true"
 ```
 
 Note: EKS cluster deletion takes ~10-15 minutes. ECR repos with images require `force_delete = true` (already configured in the ECR module).
+
+## Known Limitations
+
+Storage examples are incomplete (the EBS/EFS CSI drivers, IRSA roles, the EFS
+filesystem, and the `gp3` StorageClass are all in place; what's missing are
+usage examples):
+
+- No standalone `PersistentVolumeClaim` / `volumeClaimTemplates` example using
+  the `gp3` StorageClass. CloudNativePG's `Cluster` CR is currently the only
+  EBS consumer, and it provisions its own PVCs internally.
+- `flux/modules/aws-csi/efs-sc.yaml` has no `parameters` block
+  (`fileSystemId`, `provisioningMode`, `directoryPerms`) — the Terraform
+  `efs_file_system_id` output is not yet wired into the StorageClass, and there
+  is no EFS-backed PV/PVC example.
 
 ---
 
