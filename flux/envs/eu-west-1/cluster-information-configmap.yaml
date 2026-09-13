@@ -1,3 +1,9 @@
+# Reference/schema only — NOT applied directly (not listed in
+# ../kustomization.yaml). cluster-endpoint is only known after `terraform
+# apply`, so the real ConfigMap is generated from Terraform outputs and
+# applied with `kubectl apply -f -`; see README.md Step 3. Applying this file
+# as-is would ship the PLACEHOLDER_UPDATE_AFTER_TERRAFORM_APPLY value to
+# Karpenter's CLUSTER_ENDPOINT env var.
 apiVersion: v1
 kind: ConfigMap
 metadata:

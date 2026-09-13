@@ -1,0 +1,19 @@
+# CRD-only bootstrap stage.
+#
+# The main environment kustomization (../kustomization.yaml) applies CRDs and
+# the custom resources that depend on them together (e.g. karpenter-crds +
+# karpenter-config's NodePool/EC2NodeClass, cloudnative-pg's CRDs + the
+# sample-app Cluster CR, kgateway-crds.yaml + kgateway.yaml's Settings). On a
+# virgin cluster `kubectl apply -k ../` in one shot fails with
+# "no matches for kind" because the CRDs aren't Established yet when the CRs
+# are validated.
+#
+# Apply this kustomization first (`kubectl apply -k flux/envs/eu-west-1/crds/`)
+# to get all CRDs Established, then apply the full environment. Re-applying
+# these same CRDs as part of the full environment afterwards is a no-op.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../../modules/karpenter-crds
+  - ../../../modules/cloudnative-pg/crds
+  - ../../../modules/kgateway/crds

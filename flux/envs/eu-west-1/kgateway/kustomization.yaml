@@ -2,8 +2,11 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - ../../../modules/kgateway
-  - kgateway-gatewayclass.yaml
-  - kgateway-gateway.yaml
+  # Gloo Edge classic control plane is deployed (see modules/kgateway/kgateway.yaml),
+  # not the Kubernetes Gateway API. gateway.solo.io/v1 Gateway + VirtualService below
+  # are what's actually live; there is no GatewayClass/Gateway (gateway.networking.k8s.io)
+  # in this environment.
   - kgateway-gloo-gateway.yaml
   - sample-app-vs.yaml
+  - healthcheck-vs.yaml
   - kgateway-alb.yaml

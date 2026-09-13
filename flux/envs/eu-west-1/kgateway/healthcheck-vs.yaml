@@ -1,0 +1,19 @@
+apiVersion: gateway.solo.io/v1
+kind: VirtualService
+metadata:
+  name: healthcheck-vs
+  namespace: kgateway
+spec:
+  virtualHost:
+    # Matches any Host header, including the ALB target-group health check
+    # (which does not send the "books.code-si.com" Host header used by
+    # sample-app-vs), so the check gets a 200 instead of Envoy's 404
+    # default-route response.
+    domains:
+      - "*"
+    routes:
+      - matchers:
+          - exact: /healthz
+        directResponseAction:
+          status: 200
+          body: "ok"

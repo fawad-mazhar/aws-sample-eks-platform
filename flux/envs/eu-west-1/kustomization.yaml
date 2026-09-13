@@ -5,6 +5,7 @@ resources:
   - ../../modules/aws-csi
   - ../../modules/aws-logging
   - ../../modules/aws-load-balancer-controller
+  - ../../modules/prometheus
   - ../../modules/cluster-autoscaler
   - ../../modules/karpenter-crds
   - ../../modules/karpenter
@@ -12,5 +13,9 @@ resources:
   - ../../modules/cloudnative-pg
   - ../../modules/sample-app
   - cert-manager
-  - cluster-information-configmap.yaml
   - kgateway
+  # cluster-information-configmap.yaml is intentionally NOT listed here: its
+  # cluster-endpoint value can't be known until after `terraform apply`, so it
+  # is generated and applied directly from Terraform outputs (see README.md
+  # Step 3). The checked-in file is kept only as a schema reference — applying
+  # it as-is would ship the PLACEHOLDER_UPDATE_AFTER_TERRAFORM_APPLY value.

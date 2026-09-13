@@ -119,7 +119,7 @@ data:
       metadata:
         # Specifies the proxy's in-memory xds cache key (see projects/gloo/pkg/xds/envoy.go)
         # This value needs to match discoveryNamespace (or "writeNamespace") in the settings template
-        role: support~gateway-proxy
+        role: kgateway~gateway-proxy
     static_resources:
       listeners:
         - name: prometheus_listener
@@ -161,17 +161,17 @@ data:
                         typed_config:
                           "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
       clusters:
-      - name: gloo.support.svc.cluster.local:9977
+      - name: gloo.kgateway.svc.cluster.local:9977
         alt_stat_name: xds_cluster
         connect_timeout: 5.000s
         load_assignment:
-          cluster_name: gloo.support.svc.cluster.local:9977
+          cluster_name: gloo.kgateway.svc.cluster.local:9977
           endpoints:
           - lb_endpoints:
             - endpoint:
                 address:
                   socket_address:
-                    address: gloo.support.svc.cluster.local
+                    address: gloo.kgateway.svc.cluster.local
                     port_value: 9977
         http2_protocol_options: {}
         upstream_connection_options:
@@ -189,7 +189,7 @@ data:
             - endpoint:
                 address:
                   socket_address:
-                    address: gloo.support.svc.cluster.local
+                    address: gloo.kgateway.svc.cluster.local
                     port_value: 9976
         upstream_connection_options:
           tcp_keepalive:
@@ -205,7 +205,7 @@ data:
             - endpoint:
                 address:
                   socket_address:
-                    address: gloo.support.svc.cluster.local
+                    address: gloo.kgateway.svc.cluster.local
                     port_value: 9979
         upstream_connection_options:
           tcp_keepalive:
@@ -232,7 +232,7 @@ data:
         api_type: GRPC
         rate_limit_settings: {}
         grpc_services:
-        - envoy_grpc: {cluster_name: gloo.support.svc.cluster.local:9977}
+        - envoy_grpc: {cluster_name: gloo.kgateway.svc.cluster.local:9977}
       cds_config:
         resource_api_version: V3
         ads: {}
@@ -1058,7 +1058,7 @@ spec:
           - -c
           - |
             # if validation webhook is enabled, wait for deployment rollout so validation service will be available
-            kubectl rollout status deployment -n support gloo
+            kubectl rollout status deployment -n kgateway gloo
 
             # apply extra Gloo Edge custom resources - these are created in enterprise
             if [ "$HAS_EXTRA_CUSTOM_RESOURCES" == "true" ]
@@ -1077,8 +1077,8 @@ spec:
             fi
 
             # remove the resource-policy annotations that were added temporarily by the gloo-resource-migration job during upgrade
-            kubectl annotate upstreams.gloo.solo.io -n support -l app=gloo helm.sh/resource-policy- || exit $?
-            kubectl annotate gateways.gateway.solo.io -n support -l app=gloo helm.sh/resource-policy- || exit $?
+            kubectl annotate upstreams.gloo.solo.io -n kgateway -l app=gloo helm.sh/resource-policy- || exit $?
+            kubectl annotate gateways.gateway.solo.io -n kgateway -l app=gloo helm.sh/resource-policy- || exit $?
 ---
 # Source: gloo/templates/18-settings.yaml
 apiVersion: gloo.solo.io/v1
@@ -1107,7 +1107,7 @@ spec:
       appendXForwardedHost: true
       enableAutoMtls: false
       enableIntegration: false
-  discoveryNamespace: support
+  discoveryNamespace: kgateway
   kubernetesArtifactSource: {}
   kubernetesConfigSource: {}
   kubernetesSecretSource: {}
@@ -1129,41 +1129,6 @@ spec:
       fullEnvoyValidation: false
   discovery:
     fdsMode: WHITELIST
-  
-  # ExtAuth configuration for user-service authentication
-  extauth:
-    extauthzServerRef:
-      name: sharpershape-user-service-80
-      namespace: kgateway
-    httpService:
-      pathPrefix: /internal/authorize
-      request:
-        allowedHeaders:
-        - authorization
-        - cookie
-        - origin
-        - referer
-        - x-csrf-token
-        - x-forwarded-for
-        - x-forwarded-host
-        - x-forwarded-proto
-        - x-forwarded-port
-        - x-request-id
-        - user-agent
-        - accept
-        - accept-encoding
-        - content-type
-      response:
-        allowedUpstreamHeaders:
-        - internal-token
-        - original-token
-        allowedClientHeaders:
-        - content-type
-        - access-control-allow-origin
-        - access-control-allow-credentials
-        - access-control-allow-methods
-        - access-control-allow-headers
-    requestTimeout: 3s
 ---
 # Source: gloo/templates/5-resource-cleanup-job-service-account.yaml
 apiVersion: v1
@@ -1539,10 +1504,10 @@ spec:
               exit 0
             fi
 
-            kubectl delete --ignore-not-found upstreams.gloo.solo.io -n support -l app=gloo || exit $?
+            kubectl delete --ignore-not-found upstreams.gloo.solo.io -n kgateway -l app=gloo || exit $?
 
             # gateways can be in multiple namespaces
-            kubectl delete --ignore-not-found gateways.gateway.solo.io -n support -l app=gloo || exit $?
+            kubectl delete --ignore-not-found gateways.gateway.solo.io -n kgateway -l app=gloo || exit $?
 ---
 # Source: gloo/templates/5-resource-migration-job.yaml
 apiVersion: batch/v1
@@ -1586,12 +1551,12 @@ spec:
             # remove existing helm labels/annotations since the custom resources are no longer managed by helm.
             # also add resource-policy to tell helm not to delete the resource during upgrade.
             # select by label app=gloo, which is on all CRs from the gloo helm chart.
-            kubectl annotate --overwrite upstreams.gloo.solo.io -n support -l app=gloo helm.sh/hook- helm.sh/hook-weight- meta.helm.sh/release-name- meta.helm.sh/release-namespace- helm.sh/resource-policy=keep || exit $?
-            kubectl label upstreams.gloo.solo.io -n support -l app=gloo,app.kubernetes.io/managed-by=Helm app.kubernetes.io/managed-by- || exit $?
+            kubectl annotate --overwrite upstreams.gloo.solo.io -n kgateway -l app=gloo helm.sh/hook- helm.sh/hook-weight- meta.helm.sh/release-name- meta.helm.sh/release-namespace- helm.sh/resource-policy=keep || exit $?
+            kubectl label upstreams.gloo.solo.io -n kgateway -l app=gloo,app.kubernetes.io/managed-by=Helm app.kubernetes.io/managed-by- || exit $?
 
             # gateways can be in multiple namespaces
-            kubectl annotate --overwrite gateways.gateway.solo.io -n support -l app=gloo helm.sh/hook- helm.sh/hook-weight- meta.helm.sh/release-name- meta.helm.sh/release-namespace- helm.sh/resource-policy=keep || exit $?
-            kubectl label gateways.gateway.solo.io -n support -l app=gloo,app.kubernetes.io/managed-by=Helm app.kubernetes.io/managed-by- || exit $?
+            kubectl annotate --overwrite gateways.gateway.solo.io -n kgateway -l app=gloo helm.sh/hook- helm.sh/hook-weight- meta.helm.sh/release-name- meta.helm.sh/release-namespace- helm.sh/resource-policy=keep || exit $?
+            kubectl label gateways.gateway.solo.io -n kgateway -l app=gloo,app.kubernetes.io/managed-by=Helm app.kubernetes.io/managed-by- || exit $?
 ---
 # Source: gloo/templates/5-resource-rollout-check-job.yaml
 apiVersion: batch/v1
@@ -1647,18 +1612,18 @@ spec:
             if [ "$HAS_CUSTOM_RESOURCES" == "true" ]
             then
               # Wait for the resource rollout job to complete
-              kubectl -n support get job gloo-resource-rollout &> /dev/null
+              kubectl -n kgateway get job gloo-resource-rollout &> /dev/null
               if [ $? -eq 0 ]
               then
                 # Exit immediately if the rollout job failed
-                kubectl -n support get job gloo-resource-rollout -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}' | grep -i "True" &> /dev/null
+                kubectl -n kgateway get job gloo-resource-rollout -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}' | grep -i "True" &> /dev/null
                 if [ $? -eq 0 ]
                 then
                     echo "Rollout job failed. Not all resources were successfully created."
                     exit 1
                 fi
                 echo "Waiting for the resource rollout job to complete"
-                kubectl -n support wait --for=condition=complete job gloo-resource-rollout --timeout=120s || exit 1
+                kubectl -n kgateway wait --for=condition=complete job gloo-resource-rollout --timeout=120s || exit 1
 
               fi
 
@@ -1727,12 +1692,12 @@ spec:
           - -c
           - |
             # Check if the resource rollout job exists
-            kubectl -n support get job gloo-resource-rollout &> /dev/null
+            kubectl -n kgateway get job gloo-resource-rollout &> /dev/null
             if [ $? -eq 0 ]
             then
               echo "Cleaning up resource-rollout-job"
               # Clean it up so it doesn't cause issues with upgrades
-              kubectl -n support delete job gloo-resource-rollout || exit $?
+              kubectl -n kgateway delete job gloo-resource-rollout || exit $?
             fi
 ---
 # Source: gloo/templates/6.5-gateway-certgen-job.yaml
@@ -1789,7 +1754,7 @@ metadata:
     "helm.sh/hook": pre-install, pre-upgrade
     "helm.sh/hook-weight": "5" # must be executed before cert-gen job
 webhooks:
-- name: gloo.support.svc  # must be a domain with at least three segments separated by dots
+- name: gloo.kgateway.svc  # must be a domain with at least three segments separated by dots
   clientConfig:
     service:
       name: gloo
@@ -1825,7 +1790,7 @@ webhooks:
   failurePolicy: Ignore
 
 
-- name: kube.support.svc  # must be a domain with at least three segments separated by dots
+- name: kube.kgateway.svc  # must be a domain with at least three segments separated by dots
   clientConfig:
     service:
       name: gloo

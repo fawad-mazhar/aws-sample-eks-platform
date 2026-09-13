@@ -22,8 +22,10 @@ metadata:
     # Backend uses HTTP — ALB terminates TLS
     alb.ingress.kubernetes.io/backend-protocol: HTTP
 
-    # Health check configuration
-    alb.ingress.kubernetes.io/healthcheck-path: /
+    # Health check configuration — /healthz is served by healthcheck-vs.yaml's
+    # direct-response route, which matches regardless of Host header (unlike
+    # the ALB health check request, which won't send "books.code-si.com").
+    alb.ingress.kubernetes.io/healthcheck-path: /healthz
     alb.ingress.kubernetes.io/healthcheck-port: "80"
     alb.ingress.kubernetes.io/success-codes: "200-399"
 
