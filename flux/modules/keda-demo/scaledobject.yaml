@@ -1,0 +1,33 @@
+# Real (not inert) KEDA usage example: scales the actual sample-app
+# Deployment that serves books.code-si.com, not a throwaway demo pod
+# (contrast with karpenter-config/inflate.yaml, which is a 0-replica
+# opt-in-only example that never touches real traffic).
+#
+# Uses the cron trigger because no metrics-server is deployed in this repo,
+# so KEDA's cpu/memory scalers aren't usable out of the box.
+#
+# minReplicaCount is 1, not KEDA's default of 0: outside the cron window the
+# app must stay reachable through the ALB. The cron trigger only scales
+# *up* to 3 replicas during its window, then back down to the 1-replica
+# floor -- it never takes the public app offline.
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: fastapi-deployment
+  namespace: sample-app
+spec:
+  scaleTargetRef:
+    name: fastapi-deployment
+  minReplicaCount: 1
+  maxReplicaCount: 3
+  cooldownPeriod: 300
+  triggers:
+    - type: cron
+      metadata:
+        timezone: UTC
+        # "Business hours" demo window: scale up to 3 replicas 09:00-17:00
+        # UTC on weekdays, back down to the 1-replica floor the rest of the
+        # time.
+        start: "0 9 * * 1-5"
+        end: "0 17 * * 1-5"
+        desiredReplicas: "3"

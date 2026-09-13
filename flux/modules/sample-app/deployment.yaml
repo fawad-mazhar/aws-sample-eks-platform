@@ -3,7 +3,12 @@ kind: Deployment
 metadata:
   name: fastapi-deployment
 spec:
-  replicas: 1
+  # No `replicas:` here on purpose: once flux/modules/keda-demo/scaledobject.yaml
+  # is installed, its generated HorizontalPodAutoscaler owns this Deployment's
+  # replica count. If this field were set, the sample-app Kustomization's
+  # prune/reconcile would keep resetting it from git, fighting the HPA and
+  # undoing every scale-up. Kubernetes defaults an unset `replicas` to 1 on
+  # first creation, before KEDA/the HPA ever act on it.
   selector:
     matchLabels:
       app: fastapi-app

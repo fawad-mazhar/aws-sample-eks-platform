@@ -1,0 +1,21 @@
+# Vendored official Flux2 GitOps toolkit controllers (source-controller +
+# kustomize-controller only; helm-controller/notification-controller are
+# intentionally excluded -- this repo has no HelmReleases or alerting to
+# justify them).
+#
+# Regenerate with:
+#   flux install --components=source-controller,kustomize-controller --export > install.yaml
+# Generated with flux CLI v2.8.8. Images stay on upstream `ghcr.io/fluxcd/*`
+# -- there is no ECR mirror for the Flux controllers themselves and adding
+# one is out of scope here, the same deliberate exception already made for
+# `cloudnative-pg` (ghcr.io/cloudnative-pg) elsewhere in this repo.
+#
+# This is a one-time, manual bootstrap step (`kubectl apply -k
+# flux/modules/flux-system/`), applied before the `flux-system`
+# GitRepository/Kustomization set in flux/envs/eu-west-1/flux-system/. It is
+# intentionally NOT part of the flux/envs/eu-west-1/ aggregate: the CRDs it
+# ships won't exist yet on a virgin apply of that aggregate.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - install.yaml

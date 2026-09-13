@@ -6,6 +6,8 @@ resources:
   - ../../modules/aws-logging
   - ../../modules/aws-load-balancer-controller
   - ../../modules/prometheus
+  - ../../modules/keda
+  - ../../modules/nats
   - ../../modules/cluster-autoscaler
   - ../../modules/karpenter-crds
   - ../../modules/karpenter
@@ -14,6 +16,9 @@ resources:
   - ../../modules/sample-app
   - cert-manager
   - kgateway
+  # keda-demo (ScaledObject) and flux-system (Flux controllers + the
+  # GitRepository/Kustomization set below) are intentionally NOT listed here
+  # -- see their own kustomization.yaml comments for why.
   # cluster-information-configmap.yaml is intentionally NOT listed here: its
   # cluster-endpoint value can't be known until after `terraform apply`, so it
   # is generated and applied directly from Terraform outputs (see README.md

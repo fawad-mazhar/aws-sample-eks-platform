@@ -1,0 +1,23 @@
+# Hand-authored NATS JetStream deployment (no upstream Helm chart used --
+# adapted from a 3-node StatefulSet reference pattern, simplified for a
+# public sample repo: a single demo account instead of per-service
+# bcrypt-hashed users, since those are project-specific to the reference
+# and not applicable here).
+#
+# statefulset.yaml and stream-setup-job.yaml reference the ECR-mirrored
+# `nats`/`nats-box`/`prometheus-nats-exporter` images directly (matching
+# aws/envs/eu-west-1/ecr.tf's pinned tags), the same way
+# prometheus/karpenter/cluster-autoscaler hardcode their ECR image refs in
+# this repo -- no `images:` transformer needed since this module isn't
+# vendored from an external renderer. The exporter sidecar puts the
+# already-built (but previously unused) prometheus-nats-exporter ECR image
+# to real use, translating NATS's JSON monitoring endpoint (:8222/varz) into
+# the Prometheus text format the prometheus.io/scrape annotation expects.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: nats
+resources:
+  - configmap.yaml
+  - statefulset.yaml
+  - service.yaml
+  - stream-setup-job.yaml

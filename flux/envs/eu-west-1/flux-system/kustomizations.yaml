@@ -1,0 +1,274 @@
+# Replaces the manual, hand-numbered README apply sequence with a real
+# dependency DAG: each Kustomization's `dependsOn` mirrors what was
+# previously encoded as step numbers, and `wait: true` (the default here)
+# blocks a Kustomization from being considered Ready until its resources
+# report healthy -- kustomize-controller won't start reconciling a
+# dependent Kustomization until its dependencies are Ready.
+#
+# `wait: false` is set only on `karpenter-config` and `kgateway`: they
+# contain CRD kinds (NodePool/EC2NodeClass, and Gloo Edge's
+# Settings/VirtualService/Gateway) that kstatus can't assess readiness for,
+# so `wait: true` would just block until timeout even when they're healthy.
+# CloudNativePG's `Cluster` CR does report a standard Ready condition, so
+# `cloudnative-pg` and `sample-app` keep `wait: true`.
+#
+# The `cluster-information` ConfigMap is intentionally NOT one of these
+# Kustomizations: Flux has no access to Terraform state, so it stays a
+# one-time manual step (see README.md) applied before this set.
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: crds
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./flux/envs/eu-west-1/crds
+  prune: true
+  wait: true
+  sourceRef:
+    kind: GitRepository
+    name: aws-sample-eks-platform
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: base
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./flux/base
+  prune: true
+  wait: true
+  sourceRef:
+    kind: GitRepository
+    name: aws-sample-eks-platform
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: storage
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./flux/modules/aws-csi
+  prune: true
+  wait: true
+  dependsOn:
+    - name: base
+  sourceRef:
+    kind: GitRepository
+    name: aws-sample-eks-platform
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: logging
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./flux/modules/aws-logging
+  prune: true
+  wait: true
+  dependsOn:
+    - name: base
+  sourceRef:
+    kind: GitRepository
+    name: aws-sample-eks-platform
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: cert-manager
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./flux/envs/eu-west-1/cert-manager
+  prune: true
+  wait: true
+  dependsOn:
+    - name: base
+  sourceRef:
+    kind: GitRepository
+    name: aws-sample-eks-platform
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: prometheus
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./flux/modules/prometheus
+  prune: true
+  wait: true
+  dependsOn:
+    - name: base
+  sourceRef:
+    kind: GitRepository
+    name: aws-sample-eks-platform
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: nats
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./flux/modules/nats
+  prune: true
+  wait: true
+  dependsOn:
+    - name: base
+  sourceRef:
+    kind: GitRepository
+    name: aws-sample-eks-platform
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: keda
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./flux/modules/keda
+  prune: true
+  wait: true
+  dependsOn:
+    - name: base
+    - name: crds
+  sourceRef:
+    kind: GitRepository
+    name: aws-sample-eks-platform
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: keda-demo
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./flux/modules/keda-demo
+  prune: true
+  wait: true
+  dependsOn:
+    - name: keda
+    - name: sample-app
+  sourceRef:
+    kind: GitRepository
+    name: aws-sample-eks-platform
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: cluster-autoscaler
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./flux/modules/cluster-autoscaler
+  prune: true
+  wait: true
+  dependsOn:
+    - name: base
+  sourceRef:
+    kind: GitRepository
+    name: aws-sample-eks-platform
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: karpenter
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./flux/modules/karpenter
+  prune: true
+  wait: true
+  dependsOn:
+    - name: base
+    - name: crds
+  sourceRef:
+    kind: GitRepository
+    name: aws-sample-eks-platform
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: karpenter-config
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./flux/modules/karpenter-config
+  prune: true
+  wait: false # NodePool/EC2NodeClass: kstatus can't assess these CRD kinds
+  dependsOn:
+    - name: karpenter
+  sourceRef:
+    kind: GitRepository
+    name: aws-sample-eks-platform
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: aws-load-balancer-controller
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./flux/modules/aws-load-balancer-controller
+  prune: true
+  wait: true
+  dependsOn:
+    - name: cert-manager # webhook TLS
+  sourceRef:
+    kind: GitRepository
+    name: aws-sample-eks-platform
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: cloudnative-pg
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./flux/modules/cloudnative-pg
+  prune: true
+  wait: true
+  dependsOn:
+    - name: crds
+  sourceRef:
+    kind: GitRepository
+    name: aws-sample-eks-platform
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: kgateway
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./flux/envs/eu-west-1/kgateway
+  prune: true
+  wait: false # Gloo Edge Settings/VirtualService/Gateway: kstatus can't assess these CRD kinds
+  dependsOn:
+    - name: crds
+    - name: cloudnative-pg
+  sourceRef:
+    kind: GitRepository
+    name: aws-sample-eks-platform
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: sample-app
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./flux/modules/sample-app
+  prune: true
+  wait: true
+  dependsOn:
+    - name: cloudnative-pg
+    - name: kgateway
+  sourceRef:
+    kind: GitRepository
+    name: aws-sample-eks-platform

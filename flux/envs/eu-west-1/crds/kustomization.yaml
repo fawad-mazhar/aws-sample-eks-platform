@@ -17,3 +17,4 @@ resources:
   - ../../../modules/karpenter-crds
   - ../../../modules/cloudnative-pg/crds
   - ../../../modules/kgateway/crds
+  - ../../../modules/keda/crds

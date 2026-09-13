@@ -1,0 +1,56 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nats-config
+  namespace: nats
+data:
+  nats.conf: |
+    # Server name derived from pod name (required for JetStream clustering)
+    server_name: $POD_NAME
+
+    # HTTP monitoring server
+    http: 8222
+
+    # Cluster configuration for high availability
+    cluster {
+      name: nats-cluster
+      port: 6222
+
+      # Dynamic routes to the other pods in the StatefulSet
+      routes: [
+        nats://nats-0.nats.nats.svc.cluster.local:6222
+        nats://nats-1.nats.nats.svc.cluster.local:6222
+        nats://nats-2.nats.nats.svc.cluster.local:6222
+      ]
+    }
+
+    # JetStream configuration
+    jetstream {
+      store_dir: /data
+      max_mem: 1G
+      max_file: 10G
+    }
+
+    # DEMO CREDENTIALS -- plaintext, single account, not for production use.
+    # This mirrors the same warning already on flux/modules/sample-app/secret.yaml:
+    # for a real deployment, source these from a secrets manager (sealed-secrets,
+    # External Secrets Operator, SOPS) rather than a checked-in ConfigMap, and
+    # split into per-service accounts with least-privilege subject permissions
+    # instead of one account with access to everything.
+    authorization {
+      default_permissions = {
+        publish = "SANDBOX.>"
+        subscribe = "SANDBOX.>"
+      }
+
+      users = [
+        {
+          user: "demo"
+          password: "demo"
+          permissions = {
+            publish = [">"]
+            subscribe = [">"]
+          }
+        }
+      ]
+    }

@@ -1,0 +1,13 @@
+# Public repo over HTTPS -- no secretRef/deploy key needed. Tracks `main`:
+# nothing below will reconcile until this repo's changes are committed and
+# pushed to that branch (Flux never sees local/`dev`-branch-only work).
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: aws-sample-eks-platform
+  namespace: flux-system
+spec:
+  interval: 1m
+  url: https://github.com/fawad-mazhar/aws-sample-eks-platform
+  ref:
+    branch: main

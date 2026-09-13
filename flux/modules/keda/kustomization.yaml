@@ -1,0 +1,27 @@
+# Vendored from `helm template keda kedacore/keda --version 2.18.3
+# --namespace kube-system` -- pinned to 2.18.3 to match the image tag
+# already built and mirrored to ECR by aws/envs/eu-west-1/ecr.tf. Split into
+# crds/ (CRDs only) and keda-operator.yaml (operator +
+# keda-operator-metrics-apiserver, which registers the
+# external.metrics.k8s.io APIService the generated HPA reads, + admission
+# webhooks -- the full chart render, not an operator-only subset, or
+# ScaledObjects will silently never scale).
+#
+# This module is self-contained (includes its own CRDs, the
+# cloudnative-pg/kgateway pattern) rather than operator-only, so the `keda`
+# Flux Kustomization's `dependsOn: [base, crds]` is a real, direct guarantee.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - crds
+  - keda-operator.yaml
+images:
+  - name: ghcr.io/kedacore/keda
+    newName: 228904764948.dkr.ecr.eu-west-1.amazonaws.com/nlaclassic-eu-west-1/keda
+    newTag: "2.18.3"
+  - name: ghcr.io/kedacore/keda-metrics-apiserver
+    newName: 228904764948.dkr.ecr.eu-west-1.amazonaws.com/nlaclassic-eu-west-1/keda-metrics-apiserver
+    newTag: "2.18.3"
+  - name: ghcr.io/kedacore/keda-admission-webhooks
+    newName: 228904764948.dkr.ecr.eu-west-1.amazonaws.com/nlaclassic-eu-west-1/keda-admission-webhooks
+    newTag: "2.18.3"

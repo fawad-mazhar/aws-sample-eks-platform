@@ -1,0 +1,150 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: nats
+  namespace: nats
+  labels:
+    app: nats
+spec:
+  serviceName: nats
+  replicas: 3 # 3-node cluster for high availability
+  selector:
+    matchLabels:
+      app: nats
+  podManagementPolicy: Parallel # faster cluster formation
+  template:
+    metadata:
+      labels:
+        app: nats
+      annotations:
+        # Scrape the prometheus-nats-exporter sidecar below, not NATS's own
+        # :8222/varz directly -- that endpoint returns JSON, not
+        # Prometheus/OpenMetrics text, so Prometheus would fail to parse it.
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "7777"
+        prometheus.io/path: "/metrics"
+    spec:
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10074
+        runAsGroup: 10074
+        fsGroup: 10074
+      # Spread pods across nodes for fault tolerance. ScheduleAnyway (not
+      # DoNotSchedule) on the hostname key: the default node group sizing
+      # (aws/envs/eu-west-1/eks.tf) only guarantees 3 nodes total across two
+      # node groups on a virgin deploy, shared with every other workload in
+      # the cluster, so a hard per-host requirement could leave the third
+      # nats pod permanently Pending instead of just less evenly spread.
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: nats
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: nats
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: nats
+                topologyKey: kubernetes.io/hostname
+      containers:
+        - name: nats
+          image: 228904764948.dkr.ecr.eu-west-1.amazonaws.com/nlaclassic-eu-west-1/nats:2.12.3
+          imagePullPolicy: IfNotPresent
+          args: ["-c", "/etc/nats/nats.conf"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          ports:
+            - name: client
+              containerPort: 4222
+            - name: cluster
+              containerPort: 6222
+            - name: monitor
+              containerPort: 8222
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          livenessProbe:
+            tcpSocket:
+              port: client
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            tcpSocket:
+              port: client
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          volumeMounts:
+            - name: config
+              mountPath: /etc/nats
+            - name: nats-data
+              mountPath: /data
+        - name: nats-exporter
+          image: 228904764948.dkr.ecr.eu-west-1.amazonaws.com/nlaclassic-eu-west-1/prometheus-nats-exporter:0.18.0
+          imagePullPolicy: IfNotPresent
+          args:
+            - -connz
+            - -routez
+            - -subz
+            - -varz
+            - -jsz=all
+            - -p
+            - "7777"
+            - http://localhost:8222
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          ports:
+            - name: metrics
+              containerPort: 7777
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+      volumes:
+        - name: config
+          configMap:
+            name: nats-config
+  volumeClaimTemplates:
+    - metadata:
+        name: nats-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: gp3
+        resources:
+          requests:
+            storage: 10Gi

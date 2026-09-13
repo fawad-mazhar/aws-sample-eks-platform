@@ -1,0 +1,57 @@
+# Stream setup runs as a standalone one-shot Job, NOT an init container on
+# the StatefulSet's pod template. With podManagementPolicy: Parallel, all
+# three nats pods start their containers at once -- an init container in
+# every replica would try to reach a NATS server that no pod has started
+# yet (none of them are Ready until their own init container finishes),
+# which deadlocks on first boot. This Job's pod is independent of the
+# StatefulSet's pods, so it can retry on its own schedule while the servers
+# start and go Ready normally.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: nats-stream-setup
+  namespace: nats
+spec:
+  backoffLimit: 10
+  activeDeadlineSeconds: 600
+  template:
+    metadata:
+      labels:
+        app: nats-stream-setup
+    spec:
+      restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10075
+        runAsGroup: 10075
+      containers:
+        - name: nats-box
+          image: 228904764948.dkr.ecr.eu-west-1.amazonaws.com/nlaclassic-eu-west-1/nats-box:0.19.2
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          env:
+            - name: NATS_URL
+              value: nats://demo:demo@nats.nats.svc.cluster.local:4222
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              echo "Waiting for the NATS cluster to accept connections..."
+              until nats --server "$NATS_URL" server check connection; do
+                echo "NATS not reachable yet, retrying in 5s..."
+                sleep 5
+              done
+              echo "Creating demo JetStream stream (idempotent)..."
+              nats --server "$NATS_URL" stream add SANDBOX \
+                --subjects "SANDBOX.>" \
+                --storage file \
+                --replicas 3 \
+                --retention limits \
+                --max-age 24h \
+                --defaults || nats --server "$NATS_URL" stream info SANDBOX
+              echo "Done."

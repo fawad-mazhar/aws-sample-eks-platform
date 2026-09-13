@@ -6,4 +6,5 @@ resources:
   - cnpg-system-namespace.yaml
   - fargate-namespace.yaml
   - kgateway-namespace.yaml
+  - nats-namespace.yaml
   - sample-app-namespace.yaml

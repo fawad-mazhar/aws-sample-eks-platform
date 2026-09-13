@@ -1,0 +1,12 @@
+# Flux-only module: intentionally NOT referenced from
+# flux/envs/eu-west-1/kustomization.yaml (the plain-Kustomize aggregate).
+# ScaledObject is a KEDA CRD kind; a single-shot `kubectl apply -k` of the
+# whole aggregate would apply the KEDA operator and this ScaledObject
+# together with no ordering guarantee between them. Under Flux, the
+# `keda-demo` Kustomization's `dependsOn: [keda, sample-app]` (see
+# flux/envs/eu-west-1/flux-system/kustomizations.yaml) makes the ordering
+# explicit instead.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - scaledobject.yaml

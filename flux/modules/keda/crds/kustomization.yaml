@@ -1,0 +1,19 @@
+# KEDA's CustomResourceDefinitions (ScaledObject, ScaledJob,
+# TriggerAuthentication, ClusterTriggerAuthentication, CloudEventSource,
+# ClusterCloudEventSource), split out of the full `helm template kedacore/keda`
+# render (chart version 2.18.3, matching the ECR-mirrored image tag) so they
+# can be Established independently of the operator -- the same pattern
+# already used for karpenter-crds, cloudnative-pg/crds, and kgateway/crds in
+# this repo.
+#
+# Referenced from two places:
+#   - ../kustomization.yaml (this module's own kustomization), making the
+#     `keda` module self-contained.
+#   - flux/envs/eu-west-1/crds/kustomization.yaml (the CRD bootstrap stage),
+#     so ScaledObject/etc. are Established up front for the plain
+#     `kubectl apply -k` fallback path too. Applying the same CRDs via both
+#     paths is a no-op.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - keda-crds.yaml

@@ -1,0 +1,11 @@
+# One-time bootstrap step, applied manually after flux/modules/flux-system/
+# (the controllers themselves) is up: `kubectl apply -k
+# flux/envs/eu-west-1/flux-system/`. From this point on, Flux reconciles
+# everything in the DAG below on its own -- but only once these manifests
+# are committed and pushed to `main` (source.yaml's GitRepository tracks
+# that branch, not local/`dev`-branch-only work).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - source.yaml
+  - kustomizations.yaml

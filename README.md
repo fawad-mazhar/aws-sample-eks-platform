@@ -42,15 +42,23 @@ aws eks update-kubeconfig --name nlaclassic-eu-west-1-eks --region eu-west-1 --p
 kubectl get nodes   # verify nodes are Ready
 ```
 
-**Step 3 — Deploy Kubernetes resources (ordered)**
+**Step 3 — Deploy Kubernetes resources**
 
-Resources must be applied in order due to dependencies (CRDs before the custom resources that use them, cert-manager before the ALB controller).
+`flux/modules/flux-system/` vendors a real FluxCD control plane
+(source-controller + kustomize-controller) that continuously reconciles
+this repo from git and prunes drift -- not just plain Kustomize applied by
+hand. Steps 0-4 below are unavoidable manual prerequisites either way:
+Flux has no access to Terraform state, so the CRD bootstrap and the
+`cluster-information` ConfigMap generation can't be delegated to it. After
+step 4, pick **Option A** (Flux, recommended) or **Option B** (manual, no
+Flux) for everything else.
 
 ```bash
 # 0. CRD bootstrap — must be Established before their CRs validate.
 # A single `kubectl apply -k flux/envs/eu-west-1/` on a virgin cluster will
 # otherwise fail with "no matches for kind" for NodePool/EC2NodeClass,
-# CloudNativePG's Cluster, and Gloo Edge's Settings/VirtualService/Gateway.
+# CloudNativePG's Cluster, Gloo Edge's Settings/VirtualService/Gateway, and
+# KEDA's ScaledObject.
 kubectl apply -k flux/envs/eu-west-1/crds/
 
 # 1. Base namespaces
@@ -76,7 +84,37 @@ kubectl create configmap cluster-information -n kube-system \
   --from-literal=karpenter-queue="$(terraform output -raw karpenter_queue_name)" \
   --dry-run=client -o yaml | kubectl apply -f -
 cd -
+```
 
+**Option A — Install Flux and hand off reconciliation (recommended)**
+
+```bash
+# One-time: install the Flux controllers themselves.
+kubectl apply -k flux/modules/flux-system/
+kubectl -n flux-system rollout status deployment/source-controller
+kubectl -n flux-system rollout status deployment/kustomize-controller
+
+# One-time: point Flux at this repo (flux/envs/eu-west-1/flux-system/source.yaml
+# is a public-HTTPS GitRepository tracking `main` -- no deploy key needed, but
+# also no reconciliation of anything not yet committed and pushed there).
+kubectl apply -k flux/envs/eu-west-1/flux-system/
+
+# Watch progress -- replaces the manual `rollout status` polling in Option B.
+flux get kustomizations -A --watch
+```
+
+Flux then applies cert-manager, Prometheus, NATS, KEDA (and the `keda-demo`
+ScaledObject), Cluster Autoscaler, Karpenter, the ALB controller,
+CloudNativePG, kgateway, and the sample app itself, in the dependency order
+encoded in `flux/envs/eu-west-1/flux-system/kustomizations.yaml`
+(`dependsOn` + `wait: true`), then keeps reconciling and pruning drift on
+its own. Skip to Step 4 once `flux get kustomizations -A` shows everything
+`Ready`. From then on, deploying a change is `git push` to `main` -- see
+"Normal Deployments" below.
+
+**Option B — Continue manually, no Flux**
+
+```bash
 # 5. cert-manager (wait for pods Ready — ALB controller depends on its webhooks)
 kubectl apply -k flux/envs/eu-west-1/cert-manager/
 kubectl -n cert-manager rollout status deployment/cert-manager
@@ -87,12 +125,22 @@ kubectl -n cert-manager rollout status deployment/cert-manager-cainjector
 kubectl apply -k flux/modules/prometheus/
 kubectl -n kube-system rollout status deployment/prometheus
 
-# 7. Cluster Autoscaler — scales the Terraform-managed node groups; this is
+# 7. NATS (3-node JetStream cluster) — deployed and healthy, but not wired
+# into the sample app's code; see Known Limitations.
+kubectl apply -k flux/modules/nats/
+kubectl -n nats rollout status statefulset/nats
+
+# 8. KEDA (event-driven autoscaling operator). The `keda-demo` ScaledObject
+# that uses it is intentionally NOT applied here — see step 14's note.
+kubectl apply -k flux/modules/keda/
+kubectl -n kube-system rollout status deployment/keda-operator
+
+# 9. Cluster Autoscaler — scales the Terraform-managed node groups; this is
 # the autoscaler that actually serves normal workloads (sample-app, CNPG).
 kubectl apply -k flux/modules/cluster-autoscaler/
 kubectl -n kube-system rollout status deployment/cluster-autoscaler
 
-# 8. Karpenter — demo/teaching only in this repo. Its NodePool taints nodes
+# 10. Karpenter — demo/teaching only in this repo. Its NodePool taints nodes
 # karpenter.sh/provisioned:NoSchedule and only the "inflate" example pod
 # (flux/modules/karpenter-config/inflate.yaml, replicas: 0) tolerates it and
 # opts in via nodeSelector. Scale it up to see Karpenter provision a node;
@@ -101,21 +149,26 @@ kubectl apply -k flux/modules/karpenter/
 kubectl -n kube-system rollout status deployment/karpenter
 kubectl apply -k flux/modules/karpenter-config/
 
-# 9. ALB controller (depends on cert-manager for webhook TLS, and on the
+# 11. ALB controller (depends on cert-manager for webhook TLS, and on the
 # cluster-information ConfigMap above for CLUSTER_NAME)
 kubectl apply -k flux/modules/aws-load-balancer-controller/
 kubectl -n kube-system rollout status deployment/aws-load-balancer-controller
 
-# 10. CloudNativePG operator (wait for controller Ready — manages PostgreSQL Cluster CRs)
+# 12. CloudNativePG operator (wait for controller Ready — manages PostgreSQL Cluster CRs)
 kubectl apply -k flux/modules/cloudnative-pg/
 kubectl -n cnpg-system rollout status deployment/cnpg-controller-manager
 
-# 11. kgateway (API gateway + Ingress → creates ALB)
+# 13. kgateway (API gateway + Ingress → creates ALB)
 kubectl apply -k flux/envs/eu-west-1/kgateway/
 kubectl -n kgateway rollout status deployment/gloo
 kubectl -n kgateway rollout status deployment/gateway-proxy
 
-# 12. Sample app (FastAPI + CloudNativePG PostgreSQL cluster)
+# 14. Sample app (FastAPI + CloudNativePG PostgreSQL cluster). Its Deployment
+# has no `replicas:` field -- once KEDA is installed (step 8) you may apply
+# flux/modules/keda-demo/ by hand to let its ScaledObject/HPA own the count;
+# it's excluded from this list and from the flux/envs/eu-west-1/ aggregate
+# because ScaledObject is a KEDA CRD kind with no ordering guarantee in a
+# single-shot `kubectl apply -k` (see flux/modules/keda-demo/kustomization.yaml).
 kubectl apply -k flux/modules/sample-app/
 kubectl -n sample-app rollout status deployment/fastapi-deployment
 # Wait for PostgreSQL cluster to be ready (3 instances)
@@ -181,13 +234,28 @@ Note: always pass `-var="alb_deployed=true"` after the ALB exists, otherwise Ter
 
 **Kubernetes changes (Flux manifests)**
 
+If you installed Flux (Option A above): commit and push to `main`. Flux
+picks up the change on its next `GitRepository` poll (`interval: 1m`) and
+reconciles it automatically -- no manual `kubectl apply` needed.
+
+```bash
+# Force an immediate sync instead of waiting for the poll interval
+flux reconcile source git aws-sample-eks-platform -n flux-system
+flux reconcile kustomization <changed-module> -n flux-system
+
+# Check status
+flux get kustomizations -A
+```
+
+If you're on the manual path (Option B): validate, then apply by hand.
+
 ```bash
 # Validate first
 kustomize build flux/envs/eu-west-1 > /dev/null
 
 # Apply the specific module that changed
 kubectl apply -k flux/modules/<changed-module>/
-# or apply the full environment
+# or apply the full environment (does not include flux-system, keda-demo)
 kubectl apply -k flux/envs/eu-west-1/
 ```
 
@@ -202,11 +270,19 @@ When updating application code or Dockerfiles:
 
 ### Teardown
 
-Reverse order of deployment:
+Reverse order of deployment. If you installed Flux, suspend/remove it
+first so kustomize-controller doesn't fight the teardown by re-applying
+what you're deleting:
 
 ```bash
-# 1. Remove Kubernetes resources
+# 0. If Flux is installed: remove it first (this also prunes everything
+# it manages, since each Kustomization has prune: true).
+kubectl delete -k flux/envs/eu-west-1/flux-system/
+kubectl delete -k flux/modules/flux-system/
+
+# 1. Remove any remaining Kubernetes resources (Option B / leftovers)
 kubectl delete -k flux/envs/eu-west-1/
+kubectl delete -k flux/modules/keda-demo/ --ignore-not-found
 
 # 2. Destroy Terraform resources
 cd aws/envs/eu-west-1
@@ -222,12 +298,28 @@ filesystem, and the `gp3` StorageClass are all in place; what's missing are
 usage examples):
 
 - No standalone `PersistentVolumeClaim` / `volumeClaimTemplates` example using
-  the `gp3` StorageClass. CloudNativePG's `Cluster` CR is currently the only
-  EBS consumer, and it provisions its own PVCs internally.
+  the `gp3` StorageClass outside of the NATS StatefulSet and CloudNativePG's
+  `Cluster` CR, which provision their own PVCs internally.
 - `flux/modules/aws-csi/efs-sc.yaml` has no `parameters` block
   (`fileSystemId`, `provisioningMode`, `directoryPerms`) — the Terraform
   `efs_file_system_id` output is not yet wired into the StorageClass, and there
   is no EFS-backed PV/PVC example.
+
+Demo-vs-real caveats for the newer additions, in the same spirit as the
+Karpenter note in Step 3 (Option B, step 10):
+
+- **KEDA**: real, not inert. `flux/modules/keda-demo/scaledobject.yaml`'s
+  cron trigger scales the actual `fastapi-deployment` (sample-app) between
+  1 and 3 replicas on a schedule; the Deployment's replica count is owned
+  by the generated HorizontalPodAutoscaler, not a static `replicas:` field.
+- **NATS**: a genuine, healthy 3-node JetStream cluster, but it is not
+  wired into the sample app's code -- no service in this repo publishes or
+  subscribes to it. It's available for use, the same honesty pattern as
+  Prometheus before anything scrapes custom application metrics.
+- **Flux**: `flux/modules/flux-system/` and
+  `flux/envs/eu-west-1/flux-system/` are real, not a naming convention over
+  plain `kubectl apply -k` -- but reconciliation only starts once these
+  manifests are committed and pushed to `main` (see Step 3, Option A).
 
 ---
 
