@@ -54,6 +54,12 @@ locals {
     karpenter = {
       image_tag = "1.9.0"
     }
+    garage = {
+      image_tag = "v2.3.0"
+    }
+    kubectl = {
+      image_tag = "v1.32.9"
+    }
   }
 }
 

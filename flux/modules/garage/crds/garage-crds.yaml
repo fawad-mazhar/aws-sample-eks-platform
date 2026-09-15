@@ -1,0 +1,54 @@
+# Garage's Kubernetes peer-discovery CRD (garagenodes.deuxfleurs.fr), vendored
+# verbatim from upstream script/k8s/crd/garagenodes.deuxfleurs.fr.yaml (tag
+# v2.3.0, matching the ECR-mirrored image). Garage's [kubernetes_discovery]
+# feature has each node publish/discover peers via a GarageNode CR; we
+# pre-vendor the CRD here (and set `skip_crd = true` in garage.toml) so the
+# pods never need cluster-wide permission to create the CRD themselves.
+#
+# Same split-out-CRD pattern already used for karpenter-crds,
+# cloudnative-pg/crds, kgateway/crds, and keda/crds: registered both from
+# this module's own kustomization.yaml and from
+# flux/envs/eu-west-1/crds/kustomization.yaml so it is Established up front.
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: garagenodes.deuxfleurs.fr
+spec:
+  conversion:
+    strategy: None
+  group: deuxfleurs.fr
+  names:
+    kind: GarageNode
+    listKind: GarageNodeList
+    plural: garagenodes
+    singular: garagenode
+  scope: Namespaced
+  versions:
+  - name: v1
+    schema:
+      openAPIV3Schema:
+        description: Auto-generated derived type for Node via `CustomResource`
+        properties:
+          spec:
+            properties:
+              address:
+                format: ip
+                type: string
+              hostname:
+                type: string
+              port:
+                format: uint16
+                minimum: 0
+                type: integer
+            required:
+            - address
+            - hostname
+            - port
+            type: object
+        required:
+        - spec
+        title: GarageNode
+        type: object
+    served: true
+    storage: true
+    subresources: {}

@@ -18,3 +18,4 @@ resources:
   - ../../../modules/cloudnative-pg/crds
   - ../../../modules/kgateway/crds
   - ../../../modules/keda/crds
+  - ../../../modules/garage/crds

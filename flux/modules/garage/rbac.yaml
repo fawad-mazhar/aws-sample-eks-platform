@@ -1,0 +1,99 @@
+# Two ServiceAccounts, each with a namespaced Role -- deliberately NOT the
+# upstream Helm chart's cluster-wide / cluster-admin example, and NOT the
+# namespace `default` SA.
+#
+# 1. `garage` -- used by the StatefulSet pods (set as serviceAccountName on the
+#    pod template). This is LOAD-BEARING: with skip_crd = true, every pod must
+#    create/update its own GarageNode CR to advertise itself for peer
+#    discovery. If the pods fell back to the `default` SA the discovery client
+#    would be RBAC-forbidden and the cluster would silently never form.
+# 2. `garage-bootstrap` -- used by the one-shot layout-bootstrap Job, which
+#    execs into the pods to assign the cluster layout and creates the demo
+#    bucket/key plus a Secret holding the generated access keys.
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: garage
+  namespace: garage
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: garage-discovery
+  namespace: garage
+rules:
+  - apiGroups:
+      - deuxfleurs.fr
+    resources:
+      - garagenodes
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: garage-discovery
+  namespace: garage
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: garage-discovery
+subjects:
+  - kind: ServiceAccount
+    name: garage
+    namespace: garage
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: garage-bootstrap
+  namespace: garage
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: garage-bootstrap
+  namespace: garage
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - pods
+    verbs:
+      - get
+  - apiGroups:
+      - ""
+    resources:
+      - pods/exec
+    verbs:
+      - create
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    verbs:
+      - get
+      - create
+      - update
+      - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: garage-bootstrap
+  namespace: garage
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: garage-bootstrap
+subjects:
+  - kind: ServiceAccount
+    name: garage-bootstrap
+    namespace: garage

@@ -1,0 +1,2 @@
+# MULTIARCH
+FROM registry.k8s.io/kubectl:v1.32.9@sha256:8e74ca5ae660edaccf4d2b216339a7570f4693120fb471398f3631ab45fe7bf6

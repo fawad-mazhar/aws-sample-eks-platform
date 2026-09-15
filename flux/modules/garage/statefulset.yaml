@@ -1,0 +1,143 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: garage
+  namespace: garage
+  labels:
+    app: garage
+spec:
+  serviceName: garage-rpc
+  replicas: 3 # 3-node cluster, matching replication_factor = 3
+  selector:
+    matchLabels:
+      app: garage
+  podManagementPolicy: Parallel # faster cluster formation (matches NATS)
+  template:
+    metadata:
+      labels:
+        app: garage
+      annotations:
+        # Garage natively serves Prometheus metrics on the admin port at
+        # :3903/metrics (no exporter sidecar needed, unlike NATS). metrics_token
+        # is left unset in garage.toml so this endpoint is unauthenticated,
+        # which is what lets this annotation-based scrape work (Prometheus here
+        # can't attach a bearer token). Demo-only; see README.md.
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "3903"
+        prometheus.io/path: "/metrics"
+    spec:
+      # Dedicated SA (NOT the namespace `default` SA): with skip_crd = true
+      # every pod must create/update its own GarageNode CR to advertise itself
+      # for peer discovery, so this SA's garagenodes Role is load-bearing --
+      # without it the cluster would silently never form.
+      serviceAccountName: garage
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10076
+        runAsGroup: 10076
+        fsGroup: 10076
+      # ScheduleAnyway (not DoNotSchedule) for the same node-count reason as
+      # NATS: a virgin deploy only guarantees 3 nodes total across the two node
+      # groups (aws/envs/eu-west-1/eks.tf), shared with every other workload,
+      # so a hard per-host requirement could leave the third garage pod
+      # permanently Pending instead of just less evenly spread.
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: garage
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: garage
+                topologyKey: kubernetes.io/hostname
+      containers:
+        - name: garage
+          image: 228904764948.dkr.ecr.eu-west-1.amazonaws.com/nlaclassic-eu-west-1/garage:v2.3.0
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          env:
+            # rpc_secret and admin_token come from the checked-in Secret, not
+            # from garage.toml -- keeping secret material out of the ConfigMap.
+            - name: GARAGE_RPC_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: garage-secrets
+                  key: GARAGE_RPC_SECRET
+            - name: GARAGE_ADMIN_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: garage-secrets
+                  key: GARAGE_ADMIN_TOKEN
+          ports:
+            - name: s3
+              containerPort: 3900
+            - name: rpc
+              containerPort: 3901
+            - name: admin
+              containerPort: 3903
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+          # TCP probes on the S3 API port so pods report Ready once the process
+          # is listening, independent of whether the cluster layout has been
+          # assigned yet -- the bootstrap Job assigns layout only after pods
+          # are Ready, so readiness must not itself depend on the layout.
+          livenessProbe:
+            tcpSocket:
+              port: rpc
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            tcpSocket:
+              port: s3
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          volumeMounts:
+            - name: config
+              mountPath: /etc/garage.toml
+              subPath: garage.toml
+              readOnly: true
+            - name: meta
+              mountPath: /mnt/meta
+            - name: data
+              mountPath: /mnt/data
+      volumes:
+        - name: config
+          configMap:
+            name: garage-config
+  volumeClaimTemplates:
+    # Separate PVCs for metadata (small, frequent I/O) and data (bulk objects),
+    # per Garage's own recommendation.
+    - metadata:
+        name: meta
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: gp3
+        resources:
+          requests:
+            storage: 1Gi
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: gp3
+        resources:
+          requests:
+            storage: 20Gi

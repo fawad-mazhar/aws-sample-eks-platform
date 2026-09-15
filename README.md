@@ -103,8 +103,8 @@ kubectl apply -k flux/envs/eu-west-1/flux-system/
 flux get kustomizations -A --watch
 ```
 
-Flux then applies cert-manager, Prometheus, NATS, KEDA (and the `keda-demo`
-ScaledObject), Cluster Autoscaler, Karpenter, the ALB controller,
+Flux then applies cert-manager, Prometheus, NATS, Garage, KEDA (and the
+`keda-demo` ScaledObject), Cluster Autoscaler, Karpenter, the ALB controller,
 CloudNativePG, kgateway, and the sample app itself, in the dependency order
 encoded in `flux/envs/eu-west-1/flux-system/kustomizations.yaml`
 (`dependsOn` + `wait: true`), then keeps reconciling and pruning drift on
@@ -130,17 +130,26 @@ kubectl -n kube-system rollout status deployment/prometheus
 kubectl apply -k flux/modules/nats/
 kubectl -n nats rollout status statefulset/nats
 
-# 8. KEDA (event-driven autoscaling operator). The `keda-demo` ScaledObject
-# that uses it is intentionally NOT applied here — see step 14's note.
+# 8. Garage (S3-compatible object storage) — a genuine, healthy 3-node
+# cluster with a demo bucket/key, reachable only in-cluster; not wired into
+# the sample app's code. The layout-bootstrap Job assigns the cluster layout
+# and creates the demo bucket/key after the pods are Ready. See Known
+# Limitations.
+kubectl apply -k flux/modules/garage/
+kubectl -n garage rollout status statefulset/garage
+kubectl -n garage wait --for=condition=complete job/garage-layout-bootstrap --timeout=600s
+
+# 9. KEDA (event-driven autoscaling operator). The `keda-demo` ScaledObject
+# that uses it is intentionally NOT applied here — see step 15's note.
 kubectl apply -k flux/modules/keda/
 kubectl -n kube-system rollout status deployment/keda-operator
 
-# 9. Cluster Autoscaler — scales the Terraform-managed node groups; this is
+# 10. Cluster Autoscaler — scales the Terraform-managed node groups; this is
 # the autoscaler that actually serves normal workloads (sample-app, CNPG).
 kubectl apply -k flux/modules/cluster-autoscaler/
 kubectl -n kube-system rollout status deployment/cluster-autoscaler
 
-# 10. Karpenter — demo/teaching only in this repo. Its NodePool taints nodes
+# 11. Karpenter — demo/teaching only in this repo. Its NodePool taints nodes
 # karpenter.sh/provisioned:NoSchedule and only the "inflate" example pod
 # (flux/modules/karpenter-config/inflate.yaml, replicas: 0) tolerates it and
 # opts in via nodeSelector. Scale it up to see Karpenter provision a node;
@@ -149,22 +158,22 @@ kubectl apply -k flux/modules/karpenter/
 kubectl -n kube-system rollout status deployment/karpenter
 kubectl apply -k flux/modules/karpenter-config/
 
-# 11. ALB controller (depends on cert-manager for webhook TLS, and on the
+# 12. ALB controller (depends on cert-manager for webhook TLS, and on the
 # cluster-information ConfigMap above for CLUSTER_NAME)
 kubectl apply -k flux/modules/aws-load-balancer-controller/
 kubectl -n kube-system rollout status deployment/aws-load-balancer-controller
 
-# 12. CloudNativePG operator (wait for controller Ready — manages PostgreSQL Cluster CRs)
+# 13. CloudNativePG operator (wait for controller Ready — manages PostgreSQL Cluster CRs)
 kubectl apply -k flux/modules/cloudnative-pg/
 kubectl -n cnpg-system rollout status deployment/cnpg-controller-manager
 
-# 13. kgateway (API gateway + Ingress → creates ALB)
+# 14. kgateway (API gateway + Ingress → creates ALB)
 kubectl apply -k flux/envs/eu-west-1/kgateway/
 kubectl -n kgateway rollout status deployment/gloo
 kubectl -n kgateway rollout status deployment/gateway-proxy
 
-# 14. Sample app (FastAPI + CloudNativePG PostgreSQL cluster). Its Deployment
-# has no `replicas:` field -- once KEDA is installed (step 8) you may apply
+# 15. Sample app (FastAPI + CloudNativePG PostgreSQL cluster). Its Deployment
+# has no `replicas:` field -- once KEDA is installed (step 9) you may apply
 # flux/modules/keda-demo/ by hand to let its ScaledObject/HPA own the count;
 # it's excluded from this list and from the flux/envs/eu-west-1/ aggregate
 # because ScaledObject is a KEDA CRD kind with no ordering guarantee in a
@@ -306,7 +315,7 @@ usage examples):
   is no EFS-backed PV/PVC example.
 
 Demo-vs-real caveats for the newer additions, in the same spirit as the
-Karpenter note in Step 3 (Option B, step 10):
+Karpenter note in Step 3 (Option B, step 11):
 
 - **KEDA**: real, not inert. `flux/modules/keda-demo/scaledobject.yaml`'s
   cron trigger scales the actual `fastapi-deployment` (sample-app) between
@@ -316,6 +325,17 @@ Karpenter note in Step 3 (Option B, step 10):
   wired into the sample app's code -- no service in this repo publishes or
   subscribes to it. It's available for use, the same honesty pattern as
   Prometheus before anything scrapes custom application metrics.
+- **Garage**: a genuine, healthy 3-node S3-compatible object store with a
+  demo bucket (`demo-bucket`) and access key created by the
+  `garage-layout-bootstrap` Job. The S3 API is reachable only in-cluster
+  (`garage-s3.garage.svc.cluster.local:3900`) and is not wired into the
+  sample app's code -- same honesty pattern as NATS. Additional caveats:
+  the LMDB metadata engine can corrupt after an unclean shutdown
+  (mitigated, but not eliminated, by `metadata_auto_snapshot_interval = "6h"`
+  in `garage.toml`); Prometheus scrapes `:3903/metrics` unauthenticated
+  because `metrics_token` is deliberately left empty (annotation-based
+  scraping can't attach a bearer token) -- demo-only; and the per-pod zones
+  (`zone-0`/`zone-1`/`zone-2`) are logical placeholders, not real AWS AZs.
 - **Flux**: `flux/modules/flux-system/` and
   `flux/envs/eu-west-1/flux-system/` are real, not a naming convention over
   plain `kubectl apply -k` -- but reconciliation only starts once these

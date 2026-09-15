@@ -1,0 +1,15 @@
+# Garage's peer-discovery CRD (garagenodes.deuxfleurs.fr), split out so it can
+# be Established before the StatefulSet pods start advertising themselves --
+# same pattern as karpenter-crds, cloudnative-pg/crds, kgateway/crds, and
+# keda/crds in this repo.
+#
+# Referenced from two places:
+#   - ../kustomization.yaml (this module's own kustomization), making the
+#     `garage` module self-contained.
+#   - flux/envs/eu-west-1/crds/kustomization.yaml (the CRD bootstrap stage),
+#     so GarageNode is Established up front for the plain `kubectl apply -k`
+#     fallback path too. Applying the same CRD via both paths is a no-op.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - garage-crds.yaml

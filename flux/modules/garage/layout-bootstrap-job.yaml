@@ -1,0 +1,117 @@
+# Cluster layout assignment (garage layout assign + apply) is a required
+# one-time step with no config-file equivalent, and creating a demo bucket/key
+# needs the cluster healthy first. Like NATS's stream-setup, this runs as a
+# standalone one-shot Job (not an init container) so its retry/backoff stays
+# isolated from the StatefulSet.
+#
+# It uses `kubectl exec` to drive the `garage` CLI inside the pods (the two
+# independent community references for automating Garage layout in Kubernetes
+# do the same). Garage's admin API on :3903 could drive layout since v1.0/v2.0,
+# which would drop the kubectl image and the pods/exec grant entirely; the
+# kubectl-exec path is kept for its better-documented ergonomics -- a
+# deliberate tradeoff for a heavier dependency.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: garage-layout-bootstrap
+  namespace: garage
+spec:
+  backoffLimit: 10
+  activeDeadlineSeconds: 600
+  template:
+    metadata:
+      labels:
+        app: garage-layout-bootstrap
+    spec:
+      restartPolicy: OnFailure
+      serviceAccountName: garage-bootstrap
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10077
+        runAsGroup: 10077
+      containers:
+        - name: kubectl
+          image: 228904764948.dkr.ecr.eu-west-1.amazonaws.com/nlaclassic-eu-west-1/kubectl:v1.32.9
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          env:
+            # kubectl needs a writable HOME for its discovery cache.
+            - name: HOME
+              value: /tmp
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -eu
+              NS=garage
+              PODS="garage-0 garage-1 garage-2"
+
+              # The garage image is FROM scratch: the binary lives at /garage
+              # and is NOT on $PATH, so every exec must use the absolute path
+              # (matches the upstream k8s cookbook's ./garage convention).
+              echo "Waiting for all garage pods to answer 'garage status'..."
+              for p in $PODS; do
+                until kubectl exec -n "$NS" "$p" -- /garage status >/dev/null 2>&1; do
+                  echo "  $p not ready yet, retrying in 5s..."
+                  sleep 5
+                done
+                echo "  $p is up."
+              done
+
+              # Idempotency: skip layout assignment if roles already assigned.
+              if kubectl exec -n "$NS" garage-0 -- /garage status | grep -q "NO ROLE ASSIGNED"; then
+                echo "Assigning cluster layout (demo zones zone-0/1/2 are logical,"
+                echo "pod-ordinal-based -- NOT real AWS AZs; see README.md)..."
+                i=0
+                for p in $PODS; do
+                  # 'garage node id -q' prints <hex-id>@<addr>:<port>; take the id.
+                  NID=$(kubectl exec -n "$NS" "$p" -- /garage node id -q | cut -d@ -f1)
+                  # Capacity is unit-suffixed in Garage v1.0+ (20G matches the data PVC).
+                  kubectl exec -n "$NS" garage-0 -- /garage layout assign -z "zone-$i" -c 20G "$NID"
+                  i=$((i + 1))
+                done
+                # Compute the next layout version from the staged-changes hint
+                # rather than hardcoding --version 1, so a partial-apply retry
+                # doesn't fail on a stale version number.
+                NEXT=$(kubectl exec -n "$NS" garage-0 -- /garage layout show | sed -nE 's/.*apply --version ([0-9]+).*/\1/p' | tail -1)
+                echo "Applying layout version ${NEXT}..."
+                kubectl exec -n "$NS" garage-0 -- /garage layout apply --version "$NEXT"
+              else
+                echo "Layout already assigned, skipping."
+              fi
+
+              # Demo bucket/key/Secret -- each step guarded independently and
+              # tolerant of a prior partial run, so a mid-Job crash + retry
+              # still converges (guarding everything on bucket existence alone
+              # could leave the key or Secret permanently uncreated).
+              if ! kubectl exec -n "$NS" garage-0 -- /garage bucket list | grep -q "demo-bucket"; then
+                echo "Creating demo-bucket..."
+                kubectl exec -n "$NS" garage-0 -- /garage bucket create demo-bucket
+              fi
+              if ! kubectl exec -n "$NS" garage-0 -- /garage key list | grep -q "demo-key"; then
+                echo "Creating demo-key..."
+                kubectl exec -n "$NS" garage-0 -- /garage key create demo-key
+              fi
+              # Idempotent grant.
+              kubectl exec -n "$NS" garage-0 -- /garage bucket allow --read --write --owner demo-bucket --key demo-key
+
+              # Read back the generated access/secret key pair and (re)write the
+              # Secret. Generated at bootstrap time rather than hardcoded -- an
+              # improvement over NATS's static demo/demo. This Secret is created
+              # imperatively and is NOT in the garage Flux Kustomization's
+              # inventory, so prune: true leaves it alone.
+              KEYINFO=$(kubectl exec -n "$NS" garage-0 -- /garage key info --show-secret demo-key)
+              KID=$(echo "$KEYINFO" | grep -i "Key ID" | awk '{print $NF}')
+              SKEY=$(echo "$KEYINFO" | grep -i "Secret key" | awk '{print $NF}')
+              echo "Writing garage-demo-credentials Secret..."
+              kubectl create secret generic garage-demo-credentials -n "$NS" \
+                --from-literal=AWS_ACCESS_KEY_ID="$KID" \
+                --from-literal=AWS_SECRET_ACCESS_KEY="$SKEY" \
+                --from-literal=BUCKET=demo-bucket \
+                --from-literal=ENDPOINT=http://garage-s3.garage.svc.cluster.local:3900 \
+                --dry-run=client -o yaml | kubectl apply -f -
+              echo "Done."

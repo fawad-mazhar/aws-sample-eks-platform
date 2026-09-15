@@ -8,6 +8,7 @@ resources:
   - ../../modules/prometheus
   - ../../modules/keda
   - ../../modules/nats
+  - ../../modules/garage
   - ../../modules/cluster-autoscaler
   - ../../modules/karpenter-crds
   - ../../modules/karpenter

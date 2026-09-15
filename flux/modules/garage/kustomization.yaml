@@ -1,0 +1,25 @@
+# Hand-authored Garage (S3-compatible object storage) deployment -- no upstream
+# Helm chart used. Garage is a single self-contained Rust binary, so it maps
+# onto the same StatefulSet-plus-bootstrap-Job pattern already established for
+# NATS: a 3-replica StatefulSet plus a standalone one-shot Job that idempotently
+# bootstraps cluster-level state (the layout assignment and a demo bucket/key).
+#
+# statefulset.yaml and layout-bootstrap-job.yaml reference the ECR-mirrored
+# `garage`/`kubectl` images directly (matching aws/envs/eu-west-1/ecr.tf's
+# pinned tags), the same way NATS/prometheus/karpenter hardcode their ECR image
+# refs in this repo -- no `images:` transformer needed.
+#
+# `crds` is referenced here too (making this module self-contained), the same
+# pattern as the `keda` module. The garagenodes.deuxfleurs.fr CRD must be
+# Established before the pods start advertising themselves for peer discovery.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: garage
+resources:
+  - crds
+  - configmap.yaml
+  - secret.yaml
+  - rbac.yaml
+  - service.yaml
+  - statefulset.yaml
+  - layout-bootstrap-job.yaml

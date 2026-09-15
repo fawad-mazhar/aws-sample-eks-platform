@@ -5,6 +5,7 @@ resources:
   - cert-manager-namespace.yaml
   - cnpg-system-namespace.yaml
   - fargate-namespace.yaml
+  - garage-namespace.yaml
   - kgateway-namespace.yaml
   - nats-namespace.yaml
   - sample-app-namespace.yaml
