@@ -64,30 +64,38 @@ done < <(
 		"$RENDERED_DIR"/*.yaml | sort -u
 )
 
-for manifest_image in "${manifest_images[@]}"; do
-	if [[ "$manifest_image" == *.dkr.ecr.* ]]; then
-		image_name="${manifest_image##*/}"
-		repository="${image_name%%:*}"
-		tag="${image_name#*:}"
-		if [[ "$tag" == *"@"* ]]; then
-			tag="${tag%%@*}"
-		fi
+if [ "${#manifest_images[@]}" -gt 0 ]; then
+	for manifest_image in "${manifest_images[@]}"; do
+		if [[ "$manifest_image" == *.dkr.ecr.* ]]; then
+			image_name="${manifest_image##*/}"
+			repository="${image_name%%:*}"
+			tag="${image_name#*:}"
+			if [[ "$tag" == *"@"* ]]; then
+				tag="${tag%%@*}"
+			fi
 
-		if ! awk -v repository="$repository" -v tag="$tag" '
-			$1 == repository && $2 == "=" && $3 == "{" { in_repository = 1 }
-			in_repository && $1 == "image_tag" && $3 == ("\"" tag "\"") { found = 1 }
-			in_repository && $1 == "}" { if (found) exit 0; in_repository = 0 }
-			END { exit found ? 0 : 1 }
-		' "$ECR_TF"; then
-			echo "NOT IN ecr.tf  $repository:$tag"
-			fail=1
+			if ! awk -v repository="$repository" -v tag="$tag" '
+				$1 == repository && $2 == "=" && $3 == "{" { in_repository = 1 }
+				in_repository && $1 == "image_tag" && $3 == ("\"" tag "\"") { found = 1 }
+				in_repository && $1 == "}" { if (found) exit 0; in_repository = 0 }
+				END { exit found ? 0 : 1 }
+			' "$ECR_TF"; then
+				echo "NOT IN ecr.tf  $repository:$tag"
+				fail=1
+			fi
+		else
+			if ! docker buildx imagetools inspect "$manifest_image" > /dev/null 2>&1; then
+				echo "MISSING  $manifest_image (rendered manifest)"
+				fail=1
+			fi
 		fi
-	else
-		if ! docker buildx imagetools inspect "$manifest_image" > /dev/null 2>&1; then
-			echo "MISSING  $manifest_image (rendered manifest)"
-			fail=1
-		fi
+	done
+else
+	echo "No manifest image references found" >&2
+	if [ -n "$(find "$RENDERED_DIR" -type f -name '*.yaml' -print -quit)" ]; then
+		echo "Rendered manifests contain no image references; refusing an incomplete check"
+		fail=1
 	fi
-done
+fi
 
 exit "$fail"
