@@ -1,5 +1,22 @@
+# Regenerate with:
+#   helm template gloo gloo/gloo --version 1.22.8 \
+#     --namespace kgateway --values values.yaml > kgateway.yaml
+#   helm show crds gloo/gloo --version 1.22.8 > crds/kgateway-crds.yaml
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - crds
   - kgateway.yaml
+images:
+  - name: quay.io/solo-io/gloo
+    newName: 228904764948.dkr.ecr.eu-west-1.amazonaws.com/nlaclassic-eu-west-1/kgateway-gloo
+    newTag: 1.22.8
+  - name: quay.io/solo-io/discovery
+    newName: 228904764948.dkr.ecr.eu-west-1.amazonaws.com/nlaclassic-eu-west-1/kgateway-discovery
+    newTag: 1.22.8
+  - name: quay.io/solo-io/gloo-envoy-wrapper
+    newName: 228904764948.dkr.ecr.eu-west-1.amazonaws.com/nlaclassic-eu-west-1/kgateway-envoy
+    newTag: 1.22.8
+  - name: quay.io/solo-io/kubectl
+    newName: 228904764948.dkr.ecr.eu-west-1.amazonaws.com/nlaclassic-eu-west-1/kubectl
+    newTag: v1.32.9

@@ -7,13 +7,13 @@ locals {
       image_tag = "0.19.2"
     }
     kgateway-discovery = {
-      image_tag = "1.20.9"
+      image_tag = "1.22.8"
     }
     kgateway-envoy = {
-      image_tag = "1.20.9"
+      image_tag = "1.22.8"
     }
     kgateway-gloo = {
-      image_tag = "1.20.9"
+      image_tag = "1.22.8"
     }
     keda = {
       image_tag = "2.21.1"

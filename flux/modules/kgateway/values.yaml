@@ -1,0 +1,53 @@
+discovery:
+  enabled: true
+  deployment:
+    resources:
+      limits:
+        cpu: 100m
+        memory: 128Mi
+      requests:
+        cpu: 50m
+        memory: 128Mi
+
+gatewayProxies:
+  gatewayProxy:
+    podTemplate:
+      resources:
+        limits:
+          cpu: 200m
+          memory: 263Mi
+        requests:
+          cpu: 50m
+          memory: 263Mi
+    service:
+      type: ClusterIP
+
+global:
+  glooRbac:
+    nameSuffix: support
+
+gloo:
+  deployment:
+    affinity:
+      podAntiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                  - key: app
+                    operator: In
+                    values:
+                      - gloo
+                  - key: gloo
+                    operator: In
+                    values:
+                      - gloo
+              topologyKey: kubernetes.io/hostname
+            weight: 100
+    resources:
+      limits:
+        cpu: 200m
+        memory: 263Mi
+      requests:
+        cpu: 50m
+        memory: 263Mi
