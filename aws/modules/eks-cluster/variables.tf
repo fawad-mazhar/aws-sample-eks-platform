@@ -4,7 +4,7 @@ variable "cluster_name" {
 
 variable "cluster_version" {
   type    = string
-  default = "1.32"
+  default = "1.37"
 }
 
 variable "cluster_role_arn" {
@@ -22,17 +22,17 @@ variable "private_subnet_ids" {
 
 variable "coredns_addon_version" {
   type    = string
-  default = "v1.11.4-eksbuild.2"
+  default = "v1.14.7-eksbuild.35"
 }
 
 variable "kube_proxy_addon_version" {
   type    = string
-  default = "v1.32.0-eksbuild.2"
+  default = "v1.37.0-eksbuild.39"
 }
 
 variable "cni_addon_version" {
   type    = string
-  default = "v1.19.2-eksbuild.1"
+  default = "v1.22.4-eksbuild.14"
 }
 
 variable "node_group_role_arn" {

@@ -24,7 +24,7 @@ data "aws_iam_policy_document" "karpenter_irsa_assume" {
 
 module "karpenter" {
   source  = "terraform-aws-modules/eks/aws//modules/karpenter"
-  version = "21.15.1"
+  version = "21.30.2"
 
   cluster_name = module.eks_cluster.cluster_name
   namespace    = "kube-system"
