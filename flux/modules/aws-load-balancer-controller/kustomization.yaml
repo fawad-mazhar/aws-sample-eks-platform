@@ -1,4 +1,14 @@
+# Regenerate with:
+#   helm template aws-load-balancer-controller \
+#     eks/aws-load-balancer-controller --version 3.6.3 \
+#     --namespace kube-system --values values.yaml > deployment.yaml
+#   helm show crds eks/aws-load-balancer-controller --version 3.6.3 |
+#     awk '/^---$/ { if (doc !~ /name: (listenerruleconfigurations|loadbalancerconfigurations|targetgroupconfigurations)\.gateway\.k8s\.aws/) printf "%s", doc; doc = "---\n"; next } { doc = doc $0 "\n" } END { if (doc !~ /name: (listenerruleconfigurations|loadbalancerconfigurations|targetgroupconfigurations)\.gateway\.k8s\.aws/) printf "%s", doc }' \
+#     > crds.yaml
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
+  - crds.yaml
   - deployment.yaml
+patches:
+  - path: deployment-patch.yaml

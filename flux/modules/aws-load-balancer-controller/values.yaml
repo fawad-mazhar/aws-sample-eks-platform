@@ -1,0 +1,26 @@
+replicaCount: 1
+
+clusterName: configured-by-cluster-information
+region: configured-by-cluster-information
+vpcId: configured-by-cluster-information
+
+enableCertManager: true
+
+serviceAccount:
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::228904764948:role/nlaclassic-eu-west-1-aws-load-balancer-controller
+
+podSecurityContext:
+  fsGroup: 1337
+  runAsUser: 10050
+  runAsGroup: 10050
+
+resources:
+  limits:
+    cpu: 200m
+    memory: 500Mi
+    ephemeral-storage: 10Mi
+  requests:
+    cpu: 100m
+    memory: 200Mi
+    ephemeral-storage: 1Mi
