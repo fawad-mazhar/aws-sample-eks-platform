@@ -52,7 +52,7 @@ locals {
       image_tag = "v1.34.2"
     }
     karpenter = {
-      image_tag = "1.9.0"
+      image_tag = "1.15.2"
     }
     garage = {
       image_tag = "v2.3.0"

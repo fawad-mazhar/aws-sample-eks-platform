@@ -1,5 +1,21 @@
+# Regenerate with:
+#   helm template karpenter oci://public.ecr.aws/karpenter/karpenter \
+#     --version 1.15.2 --namespace kube-system --values values.yaml \
+#     --show-only templates/serviceaccount.yaml \
+#     --show-only templates/aggregate-clusterrole.yaml \
+#     --show-only templates/clusterrole-core.yaml \
+#     --show-only templates/clusterrole.yaml \
+#     --show-only templates/role.yaml \
+#     --show-only templates/rolebinding.yaml > rbac.yaml
+#   helm template karpenter oci://public.ecr.aws/karpenter/karpenter \
+#     --version 1.15.2 --namespace kube-system --values values.yaml \
+#     --show-only templates/poddisruptionbudget.yaml \
+#     --show-only templates/service.yaml \
+#     --show-only templates/deployment.yaml > deployment.yaml
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - rbac.yaml
   - deployment.yaml
+patches:
+  - path: deployment-patch.yaml
