@@ -19,4 +19,4 @@ images:
     newTag: 1.22.8
   - name: quay.io/solo-io/kubectl
     newName: 228904764948.dkr.ecr.eu-west-1.amazonaws.com/nlaclassic-eu-west-1/kubectl
-    newTag: v1.32.9
+    newTag: v1.37.2
