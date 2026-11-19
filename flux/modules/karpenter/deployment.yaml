@@ -97,7 +97,7 @@ spec:
             capabilities:
               drop:
                 - ALL
-          image: 228904764948.dkr.ecr.eu-west-1.amazonaws.com/nlaclassic-eu-west-1/karpenter:1.15.2@sha256:4a7dc37f85ad8987ece1cf5df55e607aa17a879a6faa76f5258c5bf182fbdfff
+          image: 228904764948.dkr.ecr.eu-west-1.amazonaws.com/nlaclassic-eu-west-1/karpenter:1.15.2
           imagePullPolicy: IfNotPresent
           env:
             - name: KUBERNETES_MIN_VERSION
