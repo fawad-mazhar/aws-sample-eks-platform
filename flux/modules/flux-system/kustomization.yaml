@@ -5,7 +5,7 @@
 #
 # Regenerate with:
 #   flux install --components=source-controller,kustomize-controller --export > install.yaml
-# Generated with flux CLI v2.8.8. Images stay on upstream `ghcr.io/fluxcd/*`
+# Generated with flux CLI v2.10.0. Images stay on upstream `ghcr.io/fluxcd/*`
 # -- there is no ECR mirror for the Flux controllers themselves and adding
 # one is out of scope here, the same deliberate exception already made for
 # `cloudnative-pg` (ghcr.io/cloudnative-pg) elsewhere in this repo.
