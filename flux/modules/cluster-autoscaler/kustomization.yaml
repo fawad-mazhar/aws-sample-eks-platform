@@ -1,3 +1,6 @@
+# Reviewed against the upstream AWS example at
+# cluster-autoscaler-1.37.0/cluster-autoscaler/cloudprovider/aws/examples/cluster-autoscaler-autodiscover.yaml.
+# The hand-maintained commands below remain supported.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:

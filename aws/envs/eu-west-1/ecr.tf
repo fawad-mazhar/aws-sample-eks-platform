@@ -49,7 +49,7 @@ locals {
       image_tag = "1.0.0"
     }
     cluster-autoscaler = {
-      image_tag = "v1.34.2"
+      image_tag = "v1.37.0"
     }
     karpenter = {
       image_tag = "1.15.2"

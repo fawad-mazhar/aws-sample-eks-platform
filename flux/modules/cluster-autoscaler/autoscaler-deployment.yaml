@@ -25,7 +25,7 @@ spec:
         runAsGroup: 10070
         runAsUser: 10070
       containers:
-        - image: 228904764948.dkr.ecr.eu-west-1.amazonaws.com/nlaclassic-eu-west-1/cluster-autoscaler:v1.34.2
+        - image: 228904764948.dkr.ecr.eu-west-1.amazonaws.com/nlaclassic-eu-west-1/cluster-autoscaler:v1.37.0
           name: cluster-autoscaler
           securityContext:
             readOnlyRootFilesystem: true
