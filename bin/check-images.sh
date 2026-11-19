@@ -60,19 +60,22 @@ while IFS= read -r manifest_image; do
 		manifest_images+=("$manifest_image")
 	fi
 done < <(
-	sed -nE 's/^[[:space:]]*image:[[:space:]]*"?([^"[:space:]]+)"?[[:space:]]*$/\1/p' \
+	sed -nE 's/^[[:space:]]*(-[[:space:]]+)?image:[[:space:]]*"?([^"[:space:]]+)"?[[:space:]]*$/\2/p' \
 		"$RENDERED_DIR"/*.yaml | sort -u
 )
 
 if [ "${#manifest_images[@]}" -gt 0 ]; then
 	for manifest_image in "${manifest_images[@]}"; do
 		if [[ "$manifest_image" == *.dkr.ecr.* ]]; then
+			if [[ "$manifest_image" == *@* ]]; then
+				echo "DIGEST ON ECR  $manifest_image"
+				fail=1
+				continue
+			fi
+
 			image_name="${manifest_image##*/}"
 			repository="${image_name%%:*}"
 			tag="${image_name#*:}"
-			if [[ "$tag" == *"@"* ]]; then
-				tag="${tag%%@*}"
-			fi
 
 			if ! awk -v repository="$repository" -v tag="$tag" '
 				$1 == repository && $2 == "=" && $3 == "{" { in_repository = 1 }
