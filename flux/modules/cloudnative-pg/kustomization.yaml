@@ -1,5 +1,17 @@
+# Regenerate with:
+#   gh release download v1.30.2 --repo cloudnative-pg/cloudnative-pg \
+#     --pattern cnpg-1.30.2.yaml --output cnpg-1.30.2.yaml --clobber
+# Split CustomResourceDefinition documents into crds/crds.yaml and write all
+# other documents to operator.yaml.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - crds
   - operator.yaml
+patches:
+  - patch: |-
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: cnpg-system
+      $patch: delete
