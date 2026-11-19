@@ -12,8 +12,8 @@ data "aws_lb" "ingress" {
   count = var.alb_deployed ? 1 : 0
 
   tags = {
-    "elbv2.k8s.aws/cluster"        = local.eks_cluster_name
-    "ingress.k8s.aws/stack"        = "kgateway/kgateway-alb"
+    "elbv2.k8s.aws/cluster" = local.eks_cluster_name
+    "ingress.k8s.aws/stack" = "kgateway/kgateway-alb"
   }
 }
 

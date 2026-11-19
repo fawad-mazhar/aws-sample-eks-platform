@@ -30,7 +30,7 @@ module "karpenter" {
   namespace    = "kube-system"
 
   # Use IRSA instead of Pod Identity
-  create_pod_identity_association          = false
+  create_pod_identity_association           = false
   iam_role_override_assume_policy_documents = [data.aws_iam_policy_document.karpenter_irsa_assume.json]
 
   # Node role
