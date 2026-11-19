@@ -18,6 +18,20 @@ aws-sample-eks-platform/
 - kubectl
 - Docker running locally (for ECR image builds)
 - kustomize (for validation)
+- kubeconform (strict Kubernetes 1.37 manifest validation)
+- Pluto (removed/deprecated API detection)
+- Flux CLI v2.10.0 (for re-vendoring Flux manifests)
+- kind 1.37 (optional server-side dry runs)
+
+The local gate also needs a Python environment with PyYAML:
+
+```bash
+python3 -m venv build/venv
+build/venv/bin/pip install pyyaml
+```
+
+The cluster is created on Kubernetes **1.37**. Run `bin/check.sh` before
+committing infrastructure or Kubernetes changes.
 
 ### Virgin Deployment (First Time)
 
@@ -260,7 +274,7 @@ If you're on the manual path (Option B): validate, then apply by hand.
 
 ```bash
 # Validate first
-kustomize build flux/envs/eu-west-1 > /dev/null
+bin/check.sh
 
 # Apply the specific module that changed
 kubectl apply -k flux/modules/<changed-module>/
