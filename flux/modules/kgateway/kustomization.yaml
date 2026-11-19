@@ -18,5 +18,30 @@ images:
     newName: 228904764948.dkr.ecr.eu-west-1.amazonaws.com/nlaclassic-eu-west-1/kgateway-envoy
     newTag: 1.22.8
   - name: quay.io/solo-io/kubectl
-    newName: 228904764948.dkr.ecr.eu-west-1.amazonaws.com/nlaclassic-eu-west-1/kubectl
-    newTag: v1.37.2
+    newName: 228904764948.dkr.ecr.eu-west-1.amazonaws.com/nlaclassic-eu-west-1/kgateway-kubectl
+    newTag: 1.22.8
+# certgen stays on quay.io as a deliberate exception: it is not mirrored to ECR.
+# Flux does not implement Helm hook semantics. Remove the chart's destructive
+# upgrade/delete hooks so they are not applied as ordinary Jobs.
+patches:
+  - patch: |-
+      apiVersion: batch/v1
+      kind: Job
+      metadata:
+        name: gloo-resource-cleanup
+        namespace: kgateway
+      $patch: delete
+  - patch: |-
+      apiVersion: batch/v1
+      kind: Job
+      metadata:
+        name: gloo-resource-migration
+        namespace: kgateway
+      $patch: delete
+  - patch: |-
+      apiVersion: batch/v1
+      kind: Job
+      metadata:
+        name: gloo-resource-rollout-cleanup
+        namespace: kgateway
+      $patch: delete

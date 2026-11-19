@@ -15,6 +15,9 @@ locals {
     kgateway-gloo = {
       image_tag = "1.22.8"
     }
+    kgateway-kubectl = {
+      image_tag = "1.22.8"
+    }
     keda = {
       image_tag = "2.21.1"
     }
