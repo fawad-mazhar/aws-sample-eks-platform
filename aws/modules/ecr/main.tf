@@ -47,14 +47,22 @@ resource "aws_ecr_lifecycle_policy" "this" {
 }
 
 resource "terraform_data" "docker_build_push" {
-  triggers_replace = sha1(join("", [for f in fileset(var.source_path, "**") : filesha1("${var.source_path}/${f}")]))
+  triggers_replace = {
+    source_hash = sha1(join("", [for f in fileset(var.source_path, "**") : filesha1("${var.source_path}/${f}")]))
+    image_tag   = var.image_tag
+    platforms   = join(",", var.platforms)
+  }
 
   provisioner "local-exec" {
     command = <<-EOT
-      set -e
-      aws ecr get-login-password --region ${var.region} --profile ${var.aws_profile} | docker login --username AWS --password-stdin ${aws_ecr_repository.this.repository_url}
-      docker build -t ${aws_ecr_repository.this.repository_url}:${var.image_tag} ${abspath(var.source_path)}
-      docker push ${aws_ecr_repository.this.repository_url}:${var.image_tag}
+      set -euo pipefail
+      aws ecr get-login-password --region ${var.region} --profile ${var.aws_profile} \
+        | docker login --username AWS --password-stdin ${aws_ecr_repository.this.repository_url}
+      docker buildx build \
+        --platform ${join(",", var.platforms)} \
+        --provenance=false \
+        -t ${aws_ecr_repository.this.repository_url}:${var.image_tag} \
+        --push ${abspath(var.source_path)}
     EOT
   }
 }

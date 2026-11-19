@@ -1,1 +1,2 @@
 FROM ghcr.io/kedacore/keda:2.21.1@sha256:d09d92c0a310e3057a3c54df387b99abf2bf31352218dbe1adcb00e807886488
+# MULTIARCH

@@ -8,12 +8,15 @@ locals {
     }
     kgateway-discovery = {
       image_tag = "1.22.8"
+      platforms = ["linux/amd64"]
     }
     kgateway-envoy = {
       image_tag = "1.22.8"
+      platforms = ["linux/amd64"]
     }
     kgateway-gloo = {
       image_tag = "1.22.8"
+      platforms = ["linux/amd64"]
     }
     kgateway-kubectl = {
       image_tag = "1.22.8"
@@ -73,6 +76,7 @@ module "ecr" {
   repository_name = "${local.env_prefix}/${each.key}"
   source_path     = "${path.module}/../../../applications/${each.key}"
   image_tag       = each.value.image_tag
+  platforms       = try(each.value.platforms, ["linux/amd64", "linux/arm64"])
   region          = var.region
   aws_profile     = "nlaclassic"
 }

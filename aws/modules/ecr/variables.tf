@@ -28,3 +28,9 @@ variable "force_delete" {
   description = "Force delete the ECR repository and all images."
   default     = false
 }
+
+variable "platforms" {
+  type        = list(string)
+  description = "Target platforms for the Docker buildx image index."
+  default     = ["linux/amd64", "linux/arm64"]
+}

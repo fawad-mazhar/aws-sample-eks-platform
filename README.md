@@ -17,6 +17,7 @@ aws-sample-eks-platform/
 - Terraform `~> 1.14.0`
 - kubectl
 - Docker running locally (for ECR image builds)
+- Docker Buildx with a builder capable of multi-platform pushes
 - kustomize (for validation)
 - kubeconform (strict Kubernetes 1.37 manifest validation)
 - Pluto (removed/deprecated API detection)
@@ -28,6 +29,15 @@ The local gate also needs a Python environment with PyYAML:
 ```bash
 python3 -m venv build/venv
 build/venv/bin/pip install pyyaml
+```
+
+The ECR module publishes `linux/amd64` and `linux/arm64` image indexes by
+default. Before the first `terraform apply`, enable the Docker Desktop
+containerd image store or configure a Buildx container builder:
+
+```bash
+docker buildx create --name multiarch --driver docker-container --use
+docker buildx inspect --bootstrap
 ```
 
 The cluster is created on Kubernetes **1.37**. Run `bin/check.sh` before
