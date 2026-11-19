@@ -1,2 +1,2 @@
-FROM quay.io/jetstack/cert-manager-controller:v1.19.2@sha256:d4ffb81a6d89a0e690ee80d07fcdcb6cccb99118010e3eb0808442e506e18ab0
+FROM quay.io/jetstack/cert-manager-controller:v1.21.3@sha256:9f4f96a33c7774cef24466fcd85031997531a03a8d117f151126baa8d1290dcc
 # MULTIARCH

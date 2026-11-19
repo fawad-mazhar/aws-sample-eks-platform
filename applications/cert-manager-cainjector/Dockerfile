@@ -1,2 +1,2 @@
-FROM quay.io/jetstack/cert-manager-cainjector:v1.19.2@sha256:1a24f9848e7ae83a787187f4e75fdf5e9adf401f44de2f156c09c6fae1bf046e
+FROM quay.io/jetstack/cert-manager-cainjector:v1.21.3@sha256:083d0e906f8eb44e255fe4ff817ae54e49f9ed82e22f1011bb4e9e4f4b8a641f
 # MULTIARCH

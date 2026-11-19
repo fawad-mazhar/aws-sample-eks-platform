@@ -37,13 +37,13 @@ locals {
       image_tag = "0.34.0"
     }
     cert-manager-controller = {
-      image_tag = "1.19.2"
+      image_tag = "1.21.3"
     }
     cert-manager-webhook = {
-      image_tag = "1.19.2"
+      image_tag = "1.21.3"
     }
     cert-manager-cainjector = {
-      image_tag = "1.19.2"
+      image_tag = "1.21.3"
     }
     sample-app = {
       image_tag = "1.0.0"
