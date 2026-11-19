@@ -16,13 +16,13 @@ locals {
       image_tag = "1.20.9"
     }
     keda = {
-      image_tag = "2.18.3"
+      image_tag = "2.21.1"
     }
     keda-metrics-apiserver = {
-      image_tag = "2.18.3"
+      image_tag = "2.21.1"
     }
     keda-admission-webhooks = {
-      image_tag = "2.18.3"
+      image_tag = "2.21.1"
     }
     prometheus = {
       image_tag = "v3.9.1"

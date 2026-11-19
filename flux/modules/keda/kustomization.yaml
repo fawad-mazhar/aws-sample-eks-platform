@@ -1,5 +1,6 @@
-# Vendored from `helm template keda kedacore/keda --version 2.18.3
-# --namespace kube-system` -- pinned to 2.18.3 to match the image tag
+# Vendored from `helm template keda kedacore/keda --version 2.21.1
+# --namespace kube-system --set crds.install=false` -- pinned to 2.21.1 to
+# match the image tag
 # already built and mirrored to ECR by aws/envs/eu-west-1/ecr.tf. Split into
 # crds/ (CRDs only) and keda-operator.yaml (operator +
 # keda-operator-metrics-apiserver, which registers the
@@ -18,10 +19,10 @@ resources:
 images:
   - name: ghcr.io/kedacore/keda
     newName: 228904764948.dkr.ecr.eu-west-1.amazonaws.com/nlaclassic-eu-west-1/keda
-    newTag: "2.18.3"
+    newTag: "2.21.1"
   - name: ghcr.io/kedacore/keda-metrics-apiserver
     newName: 228904764948.dkr.ecr.eu-west-1.amazonaws.com/nlaclassic-eu-west-1/keda-metrics-apiserver
-    newTag: "2.18.3"
+    newTag: "2.21.1"
   - name: ghcr.io/kedacore/keda-admission-webhooks
     newName: 228904764948.dkr.ecr.eu-west-1.amazonaws.com/nlaclassic-eu-west-1/keda-admission-webhooks
-    newTag: "2.18.3"
+    newTag: "2.21.1"
