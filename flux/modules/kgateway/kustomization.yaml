@@ -45,3 +45,90 @@ patches:
         name: gloo-resource-rollout-cleanup
         namespace: kgateway
       $patch: delete
+  - patch: |-
+      apiVersion: v1
+      kind: ServiceAccount
+      metadata:
+        name: gloo-resource-cleanup
+        namespace: kgateway
+      $patch: delete
+  - patch: |-
+      apiVersion: v1
+      kind: ServiceAccount
+      metadata:
+        name: gloo-resource-migration
+        namespace: kgateway
+      $patch: delete
+  - patch: |-
+      apiVersion: v1
+      kind: ServiceAccount
+      metadata:
+        name: gloo-resource-rollout-cleanup
+        namespace: kgateway
+      $patch: delete
+  - patch: |-
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: ClusterRole
+      metadata:
+        name: gloo-resource-cleanup-support
+      $patch: delete
+  - patch: |-
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: ClusterRole
+      metadata:
+        name: gloo-resource-migration-support
+      $patch: delete
+  - patch: |-
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: ClusterRoleBinding
+      metadata:
+        name: gloo-resource-cleanup-support
+      $patch: delete
+  - patch: |-
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: ClusterRoleBinding
+      metadata:
+        name: gloo-resource-migration-support
+      $patch: delete
+  - patch: |-
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: Role
+      metadata:
+        name: gloo-resource-cleanup
+        namespace: kgateway
+      $patch: delete
+  - patch: |-
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: Role
+      metadata:
+        name: gloo-resource-migration
+        namespace: kgateway
+      $patch: delete
+  - patch: |-
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: Role
+      metadata:
+        name: gloo-resource-rollout-cleanup
+        namespace: kgateway
+      $patch: delete
+  - patch: |-
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: RoleBinding
+      metadata:
+        name: gloo-resource-cleanup
+        namespace: kgateway
+      $patch: delete
+  - patch: |-
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: RoleBinding
+      metadata:
+        name: gloo-resource-migration
+        namespace: kgateway
+      $patch: delete
+  - patch: |-
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: RoleBinding
+      metadata:
+        name: gloo-resource-rollout-cleanup
+        namespace: kgateway
+      $patch: delete
