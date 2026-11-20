@@ -7,8 +7,18 @@ ECR_TF="aws/envs/eu-west-1/ecr.tf"
 RENDERED_DIR="build/validate/rendered"
 fail=0
 
+DEFAULT_ECR_PLATFORMS=$(
+	sed -nE 's/^[[:space:]]*platforms[[:space:]]*=[[:space:]]*try\(each\.value\.platforms,[[:space:]]*\[(.*)\]\).*/\1/p' \
+		"$ECR_TF" | tr -d '"[:space:]'
+)
+
 if ! command -v docker > /dev/null 2>&1; then
 	echo "Required command not found: docker" >&2
+	exit 1
+fi
+
+if [ -z "$DEFAULT_ECR_PLATFORMS" ]; then
+	echo "Could not read the default ECR platforms from $ECR_TF" >&2
 	exit 1
 fi
 
@@ -17,7 +27,35 @@ if [ ! -d "$RENDERED_DIR" ]; then
 	exit 1
 fi
 
+repository_platforms() {
+	local repository="$1"
+
+	awk -v repository="$repository" -v default_platforms="$DEFAULT_ECR_PLATFORMS" '
+		$1 == repository && $2 == "=" && $3 == "{" {
+			in_repository = 1
+			found_repository = 1
+			next
+		}
+		in_repository && $1 == "platforms" {
+			line = $0
+			sub(/^[^[]*\[/, "", line)
+			sub(/\].*$/, "", line)
+			gsub(/["[:space:]]/, "", line)
+			print line
+			found_platforms = 1
+			exit
+		}
+		in_repository && $1 == "}" { exit }
+		END {
+			if (found_repository && !found_platforms) {
+				print default_platforms
+			}
+		}
+	' "$ECR_TF"
+}
+
 while IFS= read -r dockerfile; do
+	repository="$(basename "$(dirname "$dockerfile")")"
 	source_images=()
 	while IFS= read -r source_image; do
 		if [ -n "$source_image" ]; then
@@ -34,6 +72,26 @@ while IFS= read -r dockerfile; do
 	requires_multiarch=false
 	if grep -q '# MULTIARCH' "$dockerfile"; then
 		requires_multiarch=true
+	fi
+
+	platforms=$(repository_platforms "$repository")
+	if [ -z "$platforms" ]; then
+		echo "NO ECR ENTRY  $repository ($dockerfile)"
+		fail=1
+		continue
+	fi
+
+	normalized_platforms=$(tr ',' '\n' <<< "$platforms" | sort | paste -sd, -)
+	if $requires_multiarch; then
+		if [ "$normalized_platforms" != "linux/amd64,linux/arm64" ]; then
+			echo "PLATFORM MISMATCH  $repository has # MULTIARCH but ecr.tf builds $platforms"
+			fail=1
+		fi
+	else
+		if [ "$normalized_platforms" != "linux/amd64" ]; then
+			echo "PLATFORM MISMATCH  $repository is missing # MULTIARCH for $platforms"
+			fail=1
+		fi
 	fi
 
 	for source_image in "${source_images[@]}"; do

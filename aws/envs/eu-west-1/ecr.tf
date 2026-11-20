@@ -63,9 +63,6 @@ locals {
     garage = {
       image_tag = "v2.3.0"
     }
-    kubectl = {
-      image_tag = "v1.37.2"
-    }
   }
 }
 
