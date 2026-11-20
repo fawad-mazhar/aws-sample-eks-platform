@@ -54,7 +54,8 @@ resource "terraform_data" "docker_build_push" {
   }
 
   provisioner "local-exec" {
-    command = <<-EOT
+    interpreter = ["/bin/bash", "-c"]
+    command     = <<-EOT
       set -euo pipefail
       aws ecr get-login-password --region ${var.region} --profile ${var.aws_profile} \
         | docker login --username AWS --password-stdin ${aws_ecr_repository.this.repository_url}
