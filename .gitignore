@@ -2,6 +2,7 @@
 *.tfstate
 *.tfstate.*
 *.tfplan
+tfplan
 .terraform.lock.hcl
 crash.log
 override.tf

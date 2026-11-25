@@ -75,4 +75,8 @@ module "ecr" {
   image_tag       = each.value.image_tag
   platforms       = try(each.value.platforms, ["linux/amd64", "linux/arm64"])
   region          = var.region
+
+  # Let terraform destroy delete repositories that still hold images. Every
+  # image is rebuilt from applications/ on the next apply.
+  force_delete = true
 }

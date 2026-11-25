@@ -22,7 +22,8 @@ aws-sample-eks-platform/
 - kustomize (for validation)
 - kubeconform (strict Kubernetes 1.37 manifest validation)
 - Pluto (removed/deprecated API detection)
-- Flux CLI v2.10.0 (for re-vendoring Flux manifests)
+- Flux CLI v2.10.0 (for re-vendoring Flux manifests; optional for watching
+  and forcing reconciliation)
 - kind 1.37 (optional server-side dry runs)
 - Python 3 (`bin/cluster-config.sh`, `bin/render.sh`)
 
@@ -118,25 +119,26 @@ custom domain there is a second Terraform phase, because the Route53 ALB alias
 record depends on the ALB existing, which is created by the K8s ALB controller
 after it processes the Ingress resource.
 
+Run every command from the repository root.
+
 **Step 1 — Terraform (infrastructure + ECR images)**
 
 ```bash
 set -a; . ./.env; set +a
-cd aws/envs/eu-west-1
 
-terraform init
-terraform plan -out=tfplan
-terraform apply tfplan
+terraform -chdir=aws/envs/eu-west-1 init
+terraform -chdir=aws/envs/eu-west-1 plan -out=tfplan
+terraform -chdir=aws/envs/eu-west-1 apply tfplan
 ```
 
-This creates about 110 resources: IAM roles (the ALB controller, Cluster Autoscaler and Karpenter use EKS Pod Identity; the CSI drivers use IRSA), EKS cluster (~15-20 min), node groups, Fargate profiles, ECR repos (builds+pushes all 20 images), EFS filesystem, add-ons, and the Route53 zone if a custom domain is configured. The `alb_deployed` variable defaults to `false`, so no Route53 ALB record is created yet.
+This creates about 150 resources: IAM roles (the ALB controller, Cluster Autoscaler and Karpenter use EKS Pod Identity; the CSI drivers use IRSA), EKS cluster (~15-20 min), node groups, Fargate profiles, ECR repos (builds+pushes all 20 images), EFS filesystem, add-ons, and the Route53 zone if a custom domain is configured. The `alb_deployed` variable defaults to `false`, so no Route53 ALB record is created yet.
 
 **Step 2 — Configure kubectl**
 
 ```bash
-aws eks update-kubeconfig --name "$(terraform output -raw cluster_name)" --region eu-west-1
+aws eks update-kubeconfig --region eu-west-1 \
+  --name "$(terraform -chdir=aws/envs/eu-west-1 output -raw cluster_name)"
 kubectl get nodes   # verify nodes are Ready
-cd -
 ```
 
 **Step 3 — Deploy Kubernetes resources**
@@ -196,6 +198,8 @@ kubectl apply -k flux/envs/eu-west-1/flux-system/
 
 # Watch progress -- replaces the manual `rollout status` polling in Option B.
 flux get kustomizations -A --watch
+# or, without the Flux CLI:
+kubectl -n flux-system get kustomizations.kustomize.toolkit.fluxcd.io -w
 ```
 
 Flux then applies cert-manager, Prometheus, NATS, Garage, KEDA (and the
@@ -301,21 +305,20 @@ Once the ALB exists, create the Route53 alias record:
 
 ```bash
 set -a; . ./.env; set +a
-cd aws/envs/eu-west-1
 
-terraform plan -var="alb_deployed=true" -out=tfplan
-terraform apply tfplan
+terraform -chdir=aws/envs/eu-west-1 plan -var="alb_deployed=true" -out=tfplan
+terraform -chdir=aws/envs/eu-west-1 apply tfplan
 ```
 
 This creates the `<app_subdomain>.<domain_name>` → ALB alias record
-(`terraform output app_hostname`).
+(`terraform -chdir=aws/envs/eu-west-1 output app_hostname`).
 
 **Step 6 — DNS configuration (custom domain only)**
 
 If the domain is registered with an external registrar, update the NS records at the registrar to point to the Route53 nameservers:
 
 ```bash
-terraform output route53_nameservers
+terraform -chdir=aws/envs/eu-west-1 output route53_nameservers
 ```
 
 Copy the 4 nameserver values to the domain registrar's NS records.
@@ -343,11 +346,10 @@ For changes after the initial setup:
 
 ```bash
 set -a; . ./.env; set +a
-cd aws/envs/eu-west-1
 
-terraform plan -var="alb_deployed=true" -out=tfplan
+terraform -chdir=aws/envs/eu-west-1 plan -var="alb_deployed=true" -out=tfplan
 # Review the plan
-terraform apply tfplan
+terraform -chdir=aws/envs/eu-west-1 apply tfplan
 ```
 
 Note: with a custom domain, always pass `-var="alb_deployed=true"` after the ALB exists, otherwise Terraform will try to destroy the Route53 ALB record. Without one the flag has no effect.
@@ -394,27 +396,62 @@ When updating application code or Dockerfiles:
 
 ### Teardown
 
-Reverse order of deployment. If you installed Flux, suspend/remove it
-first so kustomize-controller doesn't fight the teardown by re-applying
-what you're deleting:
+Run from the repository root while the Terraform state still exists
+(`bin/render.sh` reads its outputs). The order matters. The ALB controller,
+Karpenter and KEDA must still be running when the objects they clean up are
+deleted, and the EBS CSI driver must delete the volumes before Terraform
+removes it. Otherwise the ALB, Karpenter's EC2 instances, its instance
+profile or EBS volumes are left behind. A leftover instance profile also makes
+the destroy fail, because it keeps the Karpenter node role in use.
 
 ```bash
-# 0. If Flux is installed: remove it first (this also prunes everything
-# it manages, since each Kustomization has prune: true).
+set -a; . ./.env; set +a
+
+# 0. With Flux only: suspend every Kustomization, then remove Flux. Deleting
+# a suspended Kustomization prunes nothing, so the workloads stay for the
+# ordered steps below instead of all being deleted at once.
+kubectl -n flux-system get kustomizations.kustomize.toolkit.fluxcd.io -o name \
+  | xargs -n1 kubectl -n flux-system patch --type merge -p '{"spec":{"suspend":true}}'
 kubectl delete -k flux/envs/eu-west-1/flux-system/
 kubectl delete -k flux/modules/flux-system/
 
-# 1. Remove any remaining Kubernetes resources (Option B / leftovers)
-kubectl delete -k flux/envs/eu-west-1/
-kubectl delete -k flux/modules/keda-demo/ --ignore-not-found
+# 1. The Ingress. The ALB controller deletes the ALB, its target groups and
+# security groups, then releases the Ingress.
+kubectl -n kgateway delete ingress kgateway-alb --ignore-not-found --timeout=10m
 
-# 2. Destroy Terraform resources
-set -a; . ./.env; set +a
-cd aws/envs/eu-west-1
-terraform destroy -var="alb_deployed=true"
+# 2. Karpenter's NodePool and EC2NodeClass. Karpenter terminates the nodes it
+# launched and deletes the instance profile it created for them.
+bin/render.sh flux/modules/karpenter-config | kubectl delete -f - --ignore-not-found --timeout=10m
+
+# 3. The keda-demo ScaledObject, if it was applied (KEDA holds a finalizer).
+bin/render.sh flux/modules/keda-demo | kubectl delete -f - --ignore-not-found --timeout=5m
+
+# 4. Everything else. Deleting the namespaces also deletes the NATS, Garage
+# and PostgreSQL volume claims.
+bin/render.sh flux/envs/eu-west-1 | kubectl delete -f - --ignore-not-found --timeout=15m
+
+# 5. Wait until the EBS CSI driver has deleted every volume.
+while [ -n "$(kubectl get pv -o name)" ]; do sleep 10; done
+
+# 6. Destroy. Leave alb_deployed at its default (false): the ALB is gone and
+# looking it up would fail. The Route53 record is destroyed either way.
+terraform -chdir=aws/envs/eu-west-1 plan -destroy -out=destroy.tfplan
+terraform -chdir=aws/envs/eu-west-1 apply destroy.tfplan
 ```
 
-Note: EKS cluster deletion takes ~10-15 minutes. ECR repos with images require `force_delete = true` (already configured in the ECR module).
+Notes:
+
+- **Custom domain:** point the registrar back at the previous nameservers
+  before step 6. Terraform deletes the hosted zone only if it holds nothing
+  besides the NS and SOA records and the app alias record, so first delete
+  any records you added (an ACM validation record, for example).
+- **ECR:** repositories are deleted with their images (`force_delete` in
+  `aws/envs/eu-west-1/ecr.tf`). The next `terraform apply` rebuilds them.
+- **Fargate logs:** Fluent Bit creates the CloudWatch log group
+  `/aws/eks/fargate/logs`, which Terraform doesn't manage. Delete it if no
+  other cluster in the account writes to it:
+  `aws logs delete-log-group --log-group-name /aws/eks/fargate/logs --region eu-west-1`.
+- EKS cluster deletion takes about 10–15 minutes.
 
 ## Known Limitations
 
