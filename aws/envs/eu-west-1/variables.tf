@@ -27,6 +27,17 @@ variable "vpc_id" {
   description = "ID of the existing VPC to use for EKS. Set TF_VAR_vpc_id in .env."
 }
 
+variable "private_subnet_ids" {
+  type        = list(string)
+  default     = null
+  description = "Optional. Private subnets (in vpc_id, at least two AZs) for the control plane, nodes, Fargate and EFS. Unset: every subnet in vpc_id with map-public-ip-on-launch=false. Set TF_VAR_private_subnet_ids in .env."
+
+  validation {
+    condition     = var.private_subnet_ids == null || alltrue([for id in coalesce(var.private_subnet_ids, []) : can(regex("^subnet-[0-9a-f]+$", id))])
+    error_message = "private_subnet_ids must be a list of subnet IDs, e.g. [\"subnet-0123456789abcdef0\", \"subnet-0fedcba9876543210\"]."
+  }
+}
+
 variable "alb_deployed" {
   type        = bool
   default     = false

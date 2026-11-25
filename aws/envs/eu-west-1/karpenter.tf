@@ -25,7 +25,7 @@ module "karpenter" {
 
 # Tag private subnets for Karpenter EC2NodeClass discovery
 resource "aws_ec2_tag" "karpenter_subnet" {
-  for_each = toset(data.aws_subnets.private.ids)
+  for_each = toset(local.private_subnet_ids)
 
   resource_id = each.value
   key         = "karpenter.sh/discovery"

@@ -45,8 +45,11 @@ resource "aws_vpc_security_group_ingress_rule" "efs_nfs" {
   referenced_security_group_id = module.eks_cluster.node_security_group_id
 }
 
+# EFS allows one mount target per Availability Zone, so use one private subnet
+# in each AZ (the lowest ID when an AZ has several). Pods in other subnets of
+# the same AZ reach it through the VPC's local routing.
 resource "aws_efs_mount_target" "this" {
-  for_each = toset(data.aws_subnets.private.ids)
+  for_each = { for az, ids in local.private_subnets_by_az : az => sort(ids)[0] }
 
   file_system_id  = aws_efs_file_system.this.id
   subnet_id       = each.value

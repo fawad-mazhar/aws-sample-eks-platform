@@ -7,7 +7,7 @@ module "eks_cluster" {
   node_group_role_arn = module.eks_iam.node_group_role_arn
   fargate_role_arn    = module.eks_fargate_iam.fargate_role_arn
   vpc_id              = data.aws_vpc.this.id
-  private_subnet_ids  = data.aws_subnets.private.ids
+  private_subnet_ids  = local.private_subnet_ids
 
   ebs_csi_addon_version  = "v1.68.0-eksbuild.1"
   ebs_csi_addon_role_arn = module.ebs_csi_irsa.role_arn

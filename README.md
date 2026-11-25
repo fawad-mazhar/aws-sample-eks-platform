@@ -70,6 +70,29 @@ name, optional hostname and certificate). Flux fills them in from the
 from Terraform outputs. Without Flux, `bin/render.sh` does the same locally.
 `flux/envs/eu-west-1/cluster-vars.example.env` lists the variables.
 
+#### Network
+
+The VPC must already exist (`TF_VAR_vpc_id`). In at least two Availability
+Zones it needs:
+
+- **Private subnets** with outbound internet access through a NAT gateway.
+  The control plane ENIs, managed node groups, Fargate pods, Karpenter nodes
+  and EFS mount targets go here. VPC endpoints alone are not enough: some
+  images come from ghcr.io, quay.io and public.ecr.aws, and Flux pulls this
+  repository from GitHub.
+- **Public subnets** with a route to an internet gateway, for the
+  internet-facing ALB. The ALB controller picks subnets tagged
+  `kubernetes.io/role/elb` or, if none are tagged, subnets with that route.
+
+By default Terraform uses every subnet in the VPC that doesn't auto-assign
+public IPs as a private subnet. If the VPC also has database or other
+isolated subnets, list the private ones in `TF_VAR_private_subnet_ids`.
+`terraform plan` fails if the subnets aren't in the VPC or don't span two
+Availability Zones.
+
+The Kubernetes API endpoint has both private and public access, and the
+public endpoint accepts any source address.
+
 #### Custom domain (optional)
 
 By default the sample app is served over plain HTTP on the ALB's own DNS name,

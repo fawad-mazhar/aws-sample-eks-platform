@@ -11,7 +11,14 @@ output "vpc_id" {
 }
 
 output "private_subnet_ids" {
-  value = data.aws_subnets.private.ids
+  value = local.private_subnet_ids
+
+  # Checked here so a bad subnet set fails `terraform plan`, before anything
+  # is created. EKS rejects a cluster whose subnets don't span two AZs.
+  precondition {
+    condition     = length(local.private_subnets_by_az) >= 2
+    error_message = "EKS needs private subnets in at least two Availability Zones; found ${length(local.private_subnets_by_az)} (${join(", ", sort(keys(local.private_subnets_by_az)))}). Set TF_VAR_private_subnet_ids in .env, or check the subnets in vpc_id."
+  }
 }
 
 output "public_subnet_ids" {
