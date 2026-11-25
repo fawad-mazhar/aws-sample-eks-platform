@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# Builds the environment's full manifest set with the ${VAR} placeholders
+# filled in (bin/render.sh), i.e. what would actually be applied. Variables
+# come from the environment's Terraform outputs, or from VARS_FILE, e.g.
+#   VARS_FILE=flux/envs/eu-west-1/cluster-vars.example.env bin/build.sh eu-west-1
 set -e
 
 function log() {
@@ -20,7 +24,9 @@ rm -fR "${DIR}"
 log "env: ${ENV}, dir: ${DIR}"
 
 mkdir -p "${DIR}"
-kustomize build "./flux/envs/${ENV}" > "${DIR}/build.yaml"
+# Render to a temporary name so a failed render leaves no artifact behind.
+ENVIRONMENT="${ENV}" bin/render.sh "./flux/envs/${ENV}" > "${DIR}/build.yaml.partial"
+mv "${DIR}/build.yaml.partial" "${DIR}/build.yaml"
 
 log "Build artifact: ${DIR}/build.yaml"
 kustomize cfg count "${DIR}"
