@@ -35,7 +35,7 @@ output "oidc_provider" {
 }
 
 output "alb_controller_role_arn" {
-  value = module.alb_controller_irsa.role_arn
+  value = module.alb_controller_pod_identity.role_arn
 }
 
 output "fargate_role_arn" {
@@ -47,11 +47,15 @@ output "ecr_repository_urls" {
 }
 
 output "route53_zone_id" {
-  value = aws_route53_zone.main.zone_id
+  value = local.custom_domain ? aws_route53_zone.main[0].zone_id : null
 }
 
 output "route53_nameservers" {
-  value = aws_route53_zone.main.name_servers
+  value = local.custom_domain ? aws_route53_zone.main[0].name_servers : null
+}
+
+output "app_hostname" {
+  value = local.custom_domain ? local.app_hostname : null
 }
 
 output "ebs_csi_role_arn" {
@@ -67,7 +71,7 @@ output "efs_file_system_id" {
 }
 
 output "cluster_autoscaler_role_arn" {
-  value = module.cluster_autoscaler_irsa.role_arn
+  value = module.cluster_autoscaler_pod_identity.role_arn
 }
 
 output "karpenter_controller_role_arn" {
@@ -83,5 +87,31 @@ output "karpenter_queue_name" {
 }
 
 output "kubeconfig_command" {
-  value = "aws eks update-kubeconfig --name ${module.eks_cluster.cluster_name} --region ${var.region} --profile nlaclassic"
+  value = "aws eks update-kubeconfig --name ${module.eks_cluster.cluster_name} --region ${var.region}"
+}
+
+# Read by bin/cluster-config.sh: becomes the kube-system/cluster-information
+# ConfigMap that the controllers read at runtime.
+output "cluster_information" {
+  value = {
+    "cluster-name"     = module.eks_cluster.cluster_name
+    "aws-region"       = var.region
+    "aws-vpc-id"       = data.aws_vpc.this.id
+    "cluster-endpoint" = module.eks_cluster.cluster_endpoint
+    "karpenter-queue"  = module.karpenter.queue_name
+  }
+}
+
+# Read by bin/cluster-config.sh: the variables Flux substitutes into the
+# manifests (flux-system/cluster-vars ConfigMap, postBuild.substituteFrom).
+# flux/envs/eu-west-1/cluster-vars.example.env lists the same keys.
+output "flux_vars" {
+  value = {
+    ECR_REGISTRY        = local.ecr_registry
+    ENV_PREFIX          = local.env_prefix
+    CLUSTER_NAME        = module.eks_cluster.cluster_name
+    KARPENTER_NODE_ROLE = module.karpenter.node_iam_role_name
+    APP_HOSTNAME        = local.app_hostname
+    ACM_CERTIFICATE_ARN = var.acm_certificate_arn == null ? "" : var.acm_certificate_arn
+  }
 }

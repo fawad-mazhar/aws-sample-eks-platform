@@ -13,7 +13,8 @@ aws-sample-eks-platform/
 ## Deployment
 
 ### Prerequisites
-- AWS CLI configured with `nlaclassic` profile
+- AWS CLI with credentials for the target account (a named profile set in
+  `.env`, or the default credential chain)
 - Terraform `~> 1.14.0`
 - kubectl
 - Docker running locally (for ECR image builds)
@@ -23,6 +24,7 @@ aws-sample-eks-platform/
 - Pluto (removed/deprecated API detection)
 - Flux CLI v2.10.0 (for re-vendoring Flux manifests)
 - kind 1.37 (optional server-side dry runs)
+- Python 3 (`bin/cluster-config.sh`, `bin/render.sh`)
 
 The local gate also needs a Python environment with PyYAML:
 
@@ -41,15 +43,62 @@ docker buildx inspect --bootstrap
 ```
 
 The cluster is created on Kubernetes **1.37**. Run `bin/check.sh` before
-committing infrastructure or Kubernetes changes.
+committing infrastructure or Kubernetes changes. The gate needs no AWS
+account; its add-on availability check runs only when AWS credentials are
+available.
+
+### Configuration
+
+Nothing account-specific is committed. Your AWS profile, resource name
+prefix, VPC and (optionally) domain live in a git-ignored `.env` file:
+
+```bash
+cp .env.example .env    # then edit it
+```
+
+`bin/` scripts load `.env` automatically. For `terraform`, `aws` and
+`kubectl` in your own shell, load it first:
+
+```bash
+set -a; . ./.env; set +a
+```
+
+Terraform reads its inputs from the `TF_VAR_*` variables. The Kubernetes
+manifests contain `${VAR}` placeholders (ECR registry, name prefix, cluster
+name, optional hostname and certificate). Flux fills them in from the
+`flux-system/cluster-vars` ConfigMap, which `bin/cluster-config.sh` generates
+from Terraform outputs. Without Flux, `bin/render.sh` does the same locally.
+`flux/envs/eu-west-1/cluster-vars.example.env` lists the variables.
+
+#### Custom domain (optional)
+
+By default the sample app is served over plain HTTP on the ALB's own DNS name,
+and no Route53 resources are created. To serve it on your own hostname over
+HTTPS:
+
+1. Create (or reuse) an ACM certificate in `eu-west-1` that covers the
+   hostname, e.g. `books.example.com`.
+2. Set `TF_VAR_domain_name`, `TF_VAR_acm_certificate_arn` and optionally
+   `TF_VAR_app_subdomain` (default `books`) in `.env`.
+3. Uncomment `- custom-domain` under `components:` in
+   `flux/envs/eu-west-1/kgateway/kustomization.yaml`. This adds the hostname
+   rule, the HTTPS listener and the HTTP→HTTPS redirect.
+
+Terraform then creates the hosted zone, and the alias record once the ALB
+exists (Step 5). `bin/cluster-config.sh` refuses to continue if the component
+is enabled but no domain is set.
 
 ### Virgin Deployment (First Time)
 
-A fresh deployment is a two-phase process because the Route53 ALB alias record depends on the ALB existing, which is created by the K8s ALB controller after it processes the Ingress resource.
+A fresh deployment runs Terraform, then the Kubernetes manifests. With a
+custom domain there is a second Terraform phase, because the Route53 ALB alias
+record depends on the ALB existing, which is created by the K8s ALB controller
+after it processes the Ingress resource.
 
 **Step 1 — Terraform (infrastructure + ECR images)**
 
 ```bash
+set -a; . ./.env; set +a
 cd aws/envs/eu-west-1
 
 terraform init
@@ -57,13 +106,14 @@ terraform plan -out=tfplan
 terraform apply tfplan
 ```
 
-This creates ~108 resources: IAM roles (incl. cluster-autoscaler IRSA), EKS cluster (~15-20 min), node groups, Fargate profiles, ECR repos (builds+pushes all 18 images), Route53 zone, EFS filesystem, CSI driver addons. The `alb_deployed` variable defaults to `false`, so no Route53 ALB record is created yet.
+This creates about 110 resources: IAM roles (the ALB controller, Cluster Autoscaler and Karpenter use EKS Pod Identity; the CSI drivers use IRSA), EKS cluster (~15-20 min), node groups, Fargate profiles, ECR repos (builds+pushes all 20 images), EFS filesystem, add-ons, and the Route53 zone if a custom domain is configured. The `alb_deployed` variable defaults to `false`, so no Route53 ALB record is created yet.
 
 **Step 2 — Configure kubectl**
 
 ```bash
-aws eks update-kubeconfig --name nlaclassic-eu-west-1-eks --region eu-west-1 --profile nlaclassic
+aws eks update-kubeconfig --name "$(terraform output -raw cluster_name)" --region eu-west-1
 kubectl get nodes   # verify nodes are Ready
+cd -
 ```
 
 **Step 3 — Deploy Kubernetes resources**
@@ -95,19 +145,11 @@ kubectl apply -k flux/modules/aws-csi/
 kubectl apply -k flux/modules/aws-logging/
 
 # 4. cluster-information ConfigMap — generated from Terraform outputs, not
-# applied from the checked-in file (whose cluster-endpoint is a placeholder).
+# applied from the checked-in file (which holds placeholder values).
 # Must exist before Cluster Autoscaler, Karpenter, and the ALB controller,
 # which all read it via non-optional configMapKeyRef and will otherwise sit
 # in CreateContainerConfigError.
-cd aws/envs/eu-west-1
-kubectl create configmap cluster-information -n kube-system \
-  --from-literal=cluster-name="$(terraform output -raw cluster_name)" \
-  --from-literal=aws-region=eu-west-1 \
-  --from-literal=aws-vpc-id="$(terraform output -raw vpc_id)" \
-  --from-literal=cluster-endpoint="$(terraform output -raw cluster_endpoint)" \
-  --from-literal=karpenter-queue="$(terraform output -raw karpenter_queue_name)" \
-  --dry-run=client -o yaml | kubectl apply -f -
-cd -
+bin/cluster-config.sh apply
 ```
 
 **Option A — Install Flux and hand off reconciliation (recommended)**
@@ -117,6 +159,12 @@ cd -
 kubectl apply -k flux/modules/flux-system/
 kubectl -n flux-system rollout status deployment/source-controller
 kubectl -n flux-system rollout status deployment/kustomize-controller
+
+# One-time: the variables Flux substitutes into the manifests' ${VAR}
+# placeholders (flux-system/cluster-vars, generated from Terraform outputs).
+# kustomize-controller runs with strict substitution, so a missing variable
+# fails the reconciliation instead of applying an empty value.
+bin/cluster-config.sh apply-flux
 
 # One-time: point Flux at this repo (flux/envs/eu-west-1/flux-system/source.yaml
 # is a public-HTTPS GitRepository tracking `main` -- no deploy key needed, but
@@ -138,20 +186,25 @@ its own. Skip to Step 4 once `flux get kustomizations -A` shows everything
 
 **Option B — Continue manually, no Flux**
 
+These manifests contain `${VAR}` placeholders, so they go through
+`bin/render.sh`, which builds the kustomization and fills the placeholders in
+from the Terraform outputs, the way Flux would. Plain `kubectl apply -k` would
+apply them unfilled.
+
 ```bash
 # 5. cert-manager (wait for pods Ready — ALB controller depends on its webhooks)
-kubectl apply -k flux/envs/eu-west-1/cert-manager/
+bin/render.sh flux/envs/eu-west-1/cert-manager | kubectl apply -f -
 kubectl -n cert-manager rollout status deployment/cert-manager
 kubectl -n cert-manager rollout status deployment/cert-manager-webhook
 kubectl -n cert-manager rollout status deployment/cert-manager-cainjector
 
 # 6. Prometheus (scrapes prometheus.io/scrape-annotated pods, e.g. cluster-autoscaler)
-kubectl apply -k flux/modules/prometheus/
+bin/render.sh flux/modules/prometheus | kubectl apply -f -
 kubectl -n kube-system rollout status deployment/prometheus
 
 # 7. NATS (3-node JetStream cluster) — deployed and healthy, but not wired
 # into the sample app's code; see Known Limitations.
-kubectl apply -k flux/modules/nats/
+bin/render.sh flux/modules/nats | kubectl apply -f -
 kubectl -n nats rollout status statefulset/nats
 
 # 8. Garage (S3-compatible object storage) — a genuine, healthy 3-node
@@ -159,18 +212,18 @@ kubectl -n nats rollout status statefulset/nats
 # the sample app's code. The layout-bootstrap Job assigns the cluster layout
 # and creates the demo bucket/key after the pods are Ready. See Known
 # Limitations.
-kubectl apply -k flux/modules/garage/
+bin/render.sh flux/modules/garage | kubectl apply -f -
 kubectl -n garage rollout status statefulset/garage
 kubectl -n garage wait --for=condition=complete job/garage-layout-bootstrap --timeout=600s
 
 # 9. KEDA (event-driven autoscaling operator). The `keda-demo` ScaledObject
 # that uses it is intentionally NOT applied here — see step 15's note.
-kubectl apply -k flux/modules/keda/
+bin/render.sh flux/modules/keda | kubectl apply -f -
 kubectl -n kube-system rollout status deployment/keda-operator
 
 # 10. Cluster Autoscaler — scales the Terraform-managed node groups; this is
 # the autoscaler that actually serves normal workloads (sample-app, CNPG).
-kubectl apply -k flux/modules/cluster-autoscaler/
+bin/render.sh flux/modules/cluster-autoscaler | kubectl apply -f -
 kubectl -n kube-system rollout status deployment/cluster-autoscaler
 
 # 11. Karpenter — demo/teaching only in this repo. Its NodePool taints nodes
@@ -178,21 +231,21 @@ kubectl -n kube-system rollout status deployment/cluster-autoscaler
 # (flux/modules/karpenter-config/inflate.yaml, replicas: 0) tolerates it and
 # opts in via nodeSelector. Scale it up to see Karpenter provision a node;
 # it does not participate in scaling the sample app.
-kubectl apply -k flux/modules/karpenter/
+bin/render.sh flux/modules/karpenter | kubectl apply -f -
 kubectl -n kube-system rollout status deployment/karpenter
-kubectl apply -k flux/modules/karpenter-config/
+bin/render.sh flux/modules/karpenter-config | kubectl apply -f -
 
 # 12. ALB controller (depends on cert-manager for webhook TLS, and on the
 # cluster-information ConfigMap above for CLUSTER_NAME)
-kubectl apply -k flux/modules/aws-load-balancer-controller/
+bin/render.sh flux/modules/aws-load-balancer-controller | kubectl apply -f -
 kubectl -n kube-system rollout status deployment/aws-load-balancer-controller
 
 # 13. CloudNativePG operator (wait for controller Ready — manages PostgreSQL Cluster CRs)
-kubectl apply -k flux/modules/cloudnative-pg/
+bin/render.sh flux/modules/cloudnative-pg | kubectl apply -f -
 kubectl -n cnpg-system rollout status deployment/cnpg-controller-manager
 
 # 14. kgateway (API gateway + Ingress → creates ALB)
-kubectl apply -k flux/envs/eu-west-1/kgateway/
+bin/render.sh flux/envs/eu-west-1/kgateway | kubectl apply -f -
 kubectl -n kgateway rollout status deployment/gloo
 kubectl -n kgateway rollout status deployment/gateway-proxy
 
@@ -202,7 +255,7 @@ kubectl -n kgateway rollout status deployment/gateway-proxy
 # it's excluded from this list and from the flux/envs/eu-west-1/ aggregate
 # because ScaledObject is a KEDA CRD kind with no ordering guarantee in a
 # single-shot `kubectl apply -k` (see flux/modules/keda-demo/kustomization.yaml).
-kubectl apply -k flux/modules/sample-app/
+bin/render.sh flux/modules/sample-app | kubectl apply -f -
 kubectl -n sample-app rollout status deployment/fastapi-deployment
 # Wait for PostgreSQL cluster to be ready (3 instances)
 kubectl -n sample-app wait --for=condition=Ready cluster/postgresql --timeout=300s
@@ -217,22 +270,26 @@ kubectl -n kgateway get ingress kgateway-alb
 # Wait until ADDRESS column shows an ALB DNS name
 ```
 
-**Step 5 — Terraform phase 2 (Route53 ALB record)**
+Without a custom domain, skip to Step 7.
+
+**Step 5 — Terraform phase 2 (Route53 ALB record, custom domain only)**
 
 Once the ALB exists, create the Route53 alias record:
 
 ```bash
+set -a; . ./.env; set +a
 cd aws/envs/eu-west-1
 
 terraform plan -var="alb_deployed=true" -out=tfplan
 terraform apply tfplan
 ```
 
-This creates the `books.code-si.com` → ALB alias record.
+This creates the `<app_subdomain>.<domain_name>` → ALB alias record
+(`terraform output app_hostname`).
 
-**Step 6 — DNS configuration**
+**Step 6 — DNS configuration (custom domain only)**
 
-If `code-si.com` is registered with an external registrar, update the NS records at the registrar to point to the Route53 nameservers:
+If the domain is registered with an external registrar, update the NS records at the registrar to point to the Route53 nameservers:
 
 ```bash
 terraform output route53_nameservers
@@ -243,11 +300,17 @@ Copy the 4 nameserver values to the domain registrar's NS records.
 **Step 7 — Verify end-to-end**
 
 ```bash
-curl https://books.code-si.com/
-# Should return FastAPI sample app response
+# Without a custom domain: plain HTTP on the ALB's DNS name
+curl "http://$(kubectl -n kgateway get ingress kgateway-alb -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')/"
+
+# With a custom domain
+curl "https://$(terraform -chdir=aws/envs/eu-west-1 output -raw app_hostname)/"
+# Either should return the FastAPI sample app response
 ```
 
-Traffic flow: `books.code-si.com` → Route53 → ALB (HTTPS, TLS 1.3) → gateway-proxy (HTTP) → VirtualService → FastAPI
+Traffic flow:
+- Default: ALB DNS name → ALB (HTTP) → gateway-proxy → VirtualService → FastAPI
+- Custom domain: app hostname → Route53 → ALB (HTTPS, TLS 1.3) → gateway-proxy (HTTP) → VirtualService → FastAPI
 
 ### Normal Deployments (Subsequent Changes)
 
@@ -256,6 +319,7 @@ For changes after the initial setup:
 **Terraform changes (AWS resources)**
 
 ```bash
+set -a; . ./.env; set +a
 cd aws/envs/eu-west-1
 
 terraform plan -var="alb_deployed=true" -out=tfplan
@@ -263,7 +327,11 @@ terraform plan -var="alb_deployed=true" -out=tfplan
 terraform apply tfplan
 ```
 
-Note: always pass `-var="alb_deployed=true"` after the ALB exists, otherwise Terraform will try to destroy the Route53 ALB record.
+Note: with a custom domain, always pass `-var="alb_deployed=true"` after the ALB exists, otherwise Terraform will try to destroy the Route53 ALB record. Without one the flag has no effect.
+
+If a change affects the values in `cluster_information` or `flux_vars` (for
+example a new domain), re-run `bin/cluster-config.sh apply` and, with Flux,
+`bin/cluster-config.sh apply-flux`.
 
 **Kubernetes changes (Flux manifests)**
 
@@ -287,9 +355,9 @@ If you're on the manual path (Option B): validate, then apply by hand.
 bin/check.sh
 
 # Apply the specific module that changed
-kubectl apply -k flux/modules/<changed-module>/
+bin/render.sh flux/modules/<changed-module> | kubectl apply -f -
 # or apply the full environment (does not include flux-system, keda-demo)
-kubectl apply -k flux/envs/eu-west-1/
+bin/render.sh flux/envs/eu-west-1 | kubectl apply -f -
 ```
 
 **Application image updates**
@@ -299,7 +367,7 @@ When updating application code or Dockerfiles:
 1. Update the `image_tag` in `aws/envs/eu-west-1/ecr.tf`
 2. Run `terraform apply` — the ECR module detects source hash changes and rebuilds/pushes
 3. Update the image tag in the corresponding Flux deployment manifest
-4. Apply the Kubernetes change: `kubectl apply -k flux/modules/<app>/`
+4. Apply the Kubernetes change: push to `main` (Flux), or `bin/render.sh flux/modules/<app> | kubectl apply -f -`
 
 ### Teardown
 
@@ -318,6 +386,7 @@ kubectl delete -k flux/envs/eu-west-1/
 kubectl delete -k flux/modules/keda-demo/ --ignore-not-found
 
 # 2. Destroy Terraform resources
+set -a; . ./.env; set +a
 cd aws/envs/eu-west-1
 terraform destroy -var="alb_deployed=true"
 ```

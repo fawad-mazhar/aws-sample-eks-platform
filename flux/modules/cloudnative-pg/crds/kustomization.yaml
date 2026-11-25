@@ -1,4 +1,9 @@
+# The vendored CRD descriptions contain literal ${...} and $${...} examples.
+# Opt them out of Flux post-build variable substitution, which would
+# otherwise rewrite them (or fail, with strict substitution enabled).
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - crds.yaml
+commonAnnotations:
+  kustomize.toolkit.fluxcd.io/substitute: disabled

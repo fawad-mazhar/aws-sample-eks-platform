@@ -11,8 +11,6 @@ metadata:
     app.kubernetes.io/instance: karpenter
     app.kubernetes.io/version: "1.15.2"
     app.kubernetes.io/managed-by: Helm
-  annotations:
-    eks.amazonaws.com/role-arn: arn:aws:iam::228904764948:role/nlaclassic-eu-west-1-karpenter
 automountServiceAccountToken: false
 
 ---

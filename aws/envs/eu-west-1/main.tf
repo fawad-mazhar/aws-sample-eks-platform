@@ -14,8 +14,7 @@ terraform {
 }
 
 provider "aws" {
-  region  = var.region
-  profile = "nlaclassic"
+  region = var.region
 
   default_tags {
     tags = {

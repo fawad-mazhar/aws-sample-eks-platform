@@ -57,7 +57,7 @@ resource "terraform_data" "docker_build_push" {
     interpreter = ["/bin/bash", "-c"]
     command     = <<-EOT
       set -euo pipefail
-      aws ecr get-login-password --region ${var.region} --profile ${var.aws_profile} \
+      aws ecr get-login-password --region ${var.region} \
         | docker login --username AWS --password-stdin ${aws_ecr_repository.this.repository_url}
       docker buildx build \
         --platform ${join(",", var.platforms)} \

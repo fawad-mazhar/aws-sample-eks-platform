@@ -1,26 +1,40 @@
+# Opt-in: everything in this file is created only when var.domain_name is set.
 resource "aws_route53_zone" "main" {
-  name = "code-si.com"
+  count = local.custom_domain ? 1 : 0
+
+  name = var.domain_name
 
   tags = {
-    Name = "code-si.com"
+    Name = var.domain_name
+  }
+
+  lifecycle {
+    precondition {
+      condition     = var.acm_certificate_arn != null
+      error_message = "acm_certificate_arn is required when domain_name is set (the ALB HTTPS listener needs it)."
+    }
   }
 }
 
 # ALB lookup — only available after ALB controller + Ingress are deployed.
-# Set alb_deployed = true in terraform.tfvars after deployment.
+# Pass -var="alb_deployed=true" after deployment. The Ingress sets
+# alb.ingress.kubernetes.io/group.name (ENV_PREFIX-ingress), and for an
+# explicit IngressGroup the controller tags the ALB's stack with the group
+# name, not namespace/ingress-name.
 data "aws_lb" "ingress" {
-  count = var.alb_deployed ? 1 : 0
+  count = local.custom_domain && var.alb_deployed ? 1 : 0
 
   tags = {
     "elbv2.k8s.aws/cluster" = local.eks_cluster_name
-    "ingress.k8s.aws/stack" = "kgateway/kgateway-alb"
+    "ingress.k8s.aws/stack" = "${local.env_prefix}-ingress"
   }
 }
 
-resource "aws_route53_record" "books" {
-  count   = var.alb_deployed ? 1 : 0
-  zone_id = aws_route53_zone.main.zone_id
-  name    = "books.code-si.com"
+resource "aws_route53_record" "app" {
+  count = local.custom_domain && var.alb_deployed ? 1 : 0
+
+  zone_id = aws_route53_zone.main[0].zone_id
+  name    = local.app_hostname
   type    = "A"
 
   alias {

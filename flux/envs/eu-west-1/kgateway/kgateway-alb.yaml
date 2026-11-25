@@ -1,3 +1,10 @@
+# Default (no custom domain): plain HTTP on the ALB's own DNS name, every Host
+# header routed to gateway-proxy. The opt-in custom-domain component
+# (./custom-domain) adds the hostname rule, the HTTPS listener with the ACM
+# certificate, and the HTTP->HTTPS redirect.
+#
+# ENV_PREFIX below is substituted by Flux from the flux-system/cluster-vars
+# ConfigMap (or locally by bin/render.sh).
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -5,26 +12,18 @@ metadata:
   namespace: kgateway
   annotations:
     # ALB ingress group
-    alb.ingress.kubernetes.io/group.name: nlaclassic-eu-west-1-ingress
+    alb.ingress.kubernetes.io/group.name: ${ENV_PREFIX}-ingress
 
     # Network configuration
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
 
-    # TLS configuration
-    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:eu-west-1:228904764948:certificate/6868d04e-52c9-4b60-a374-1b028fa701eb
-    alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS13-1-2-2021-06
-    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
-
-    # SSL redirect
-    alb.ingress.kubernetes.io/actions.ssl-redirect: '{"Type": "redirect", "RedirectConfig": {"Protocol": "HTTPS", "Port": "443", "StatusCode": "HTTP_301"}}'
-
-    # Backend uses HTTP — ALB terminates TLS
+    # Backend uses HTTP
     alb.ingress.kubernetes.io/backend-protocol: HTTP
 
-    # Health check configuration — /healthz is served by healthcheck-vs.yaml's
-    # direct-response route, which matches regardless of Host header (unlike
-    # the ALB health check request, which won't send "books.code-si.com").
+    # Health check configuration — /healthz is a direct-response route that
+    # matches regardless of Host header (the ALB health check sends none).
     alb.ingress.kubernetes.io/healthcheck-path: /healthz
     alb.ingress.kubernetes.io/healthcheck-port: "80"
     alb.ingress.kubernetes.io/success-codes: "200-399"
@@ -37,20 +36,7 @@ metadata:
 spec:
   ingressClassName: alb
   rules:
-    # SSL redirect rule
-    - host: books.code-si.com
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: ssl-redirect
-                port:
-                  name: use-annotation
-    # Main traffic rule
-    - host: books.code-si.com
-      http:
+    - http:
         paths:
           - path: /
             pathType: Prefix

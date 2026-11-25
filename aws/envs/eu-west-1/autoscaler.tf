@@ -36,13 +36,12 @@ data "aws_iam_policy_document" "cluster_autoscaler" {
   }
 }
 
-module "cluster_autoscaler_irsa" {
-  source = "../../modules/eks-oidc-iam"
+module "cluster_autoscaler_pod_identity" {
+  source = "../../modules/eks-pod-identity-iam"
 
   env_prefix           = local.env_prefix
   role_name            = "cluster-autoscaler"
-  oidc_provider_arn    = module.eks_cluster.oidc_provider_arn
-  oidc_issuer          = module.eks_cluster.oidc_provider
+  cluster_name         = module.eks_cluster.cluster_name
   namespace            = "kube-system"
   service_account_name = "cluster-autoscaler"
   policy_json          = data.aws_iam_policy_document.cluster_autoscaler.json

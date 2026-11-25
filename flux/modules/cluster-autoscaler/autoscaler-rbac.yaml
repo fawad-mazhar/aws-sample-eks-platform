@@ -6,8 +6,6 @@ metadata:
   labels:
     k8s-addon: cluster-autoscaler.addons.k8s.io
     k8s-app: cluster-autoscaler
-  annotations:
-    eks.amazonaws.com/role-arn: arn:aws:iam::228904764948:role/nlaclassic-eu-west-1-cluster-autoscaler
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole

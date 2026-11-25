@@ -9,16 +9,16 @@ resources:
   - kgateway.yaml
 images:
   - name: quay.io/solo-io/gloo
-    newName: 228904764948.dkr.ecr.eu-west-1.amazonaws.com/nlaclassic-eu-west-1/kgateway-gloo
+    newName: ${ECR_REGISTRY}/${ENV_PREFIX}/kgateway-gloo
     newTag: 1.22.8
   - name: quay.io/solo-io/discovery
-    newName: 228904764948.dkr.ecr.eu-west-1.amazonaws.com/nlaclassic-eu-west-1/kgateway-discovery
+    newName: ${ECR_REGISTRY}/${ENV_PREFIX}/kgateway-discovery
     newTag: 1.22.8
   - name: quay.io/solo-io/gloo-envoy-wrapper
-    newName: 228904764948.dkr.ecr.eu-west-1.amazonaws.com/nlaclassic-eu-west-1/kgateway-envoy
+    newName: ${ECR_REGISTRY}/${ENV_PREFIX}/kgateway-envoy
     newTag: 1.22.8
   - name: quay.io/solo-io/kubectl
-    newName: 228904764948.dkr.ecr.eu-west-1.amazonaws.com/nlaclassic-eu-west-1/kgateway-kubectl
+    newName: ${ECR_REGISTRY}/${ENV_PREFIX}/kgateway-kubectl
     newTag: 1.22.8
 # certgen stays on quay.io as a deliberate exception: it is not mirrored to ECR.
 # Flux does not implement Helm hook semantics. Remove the chart's destructive

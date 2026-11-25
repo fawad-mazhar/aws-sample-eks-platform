@@ -26,7 +26,7 @@ spec:
         runAsGroup: 10075
       containers:
         - name: nats-box
-          image: 228904764948.dkr.ecr.eu-west-1.amazonaws.com/nlaclassic-eu-west-1/nats-box:0.19.2
+          image: ${ECR_REGISTRY}/${ENV_PREFIX}/nats-box:0.19.2
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false

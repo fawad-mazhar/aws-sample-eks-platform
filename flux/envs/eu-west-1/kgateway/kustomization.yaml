@@ -8,5 +8,8 @@ resources:
   # in this environment.
   - kgateway-gloo-gateway.yaml
   - sample-app-vs.yaml
-  - healthcheck-vs.yaml
   - kgateway-alb.yaml
+# Opt-in: hostname + HTTPS on the ALB. Requires TF_VAR_domain_name and
+# TF_VAR_acm_certificate_arn in .env (see custom-domain/kustomization.yaml).
+# components:
+#   - custom-domain

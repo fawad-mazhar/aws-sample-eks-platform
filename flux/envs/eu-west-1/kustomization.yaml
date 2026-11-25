@@ -21,7 +21,10 @@ resources:
   # GitRepository/Kustomization set below) are intentionally NOT listed here
   # -- see their own kustomization.yaml comments for why.
   # cluster-information-configmap.yaml is intentionally NOT listed here: its
-  # cluster-endpoint value can't be known until after `terraform apply`, so it
-  # is generated and applied directly from Terraform outputs (see README.md
-  # Step 3). The checked-in file is kept only as a schema reference — applying
-  # it as-is would ship the PLACEHOLDER_UPDATE_AFTER_TERRAFORM_APPLY value.
+  # values are only known after `terraform apply`, so bin/cluster-config.sh
+  # generates it from Terraform outputs (see README.md Step 3). The checked-in
+  # file is a schema reference with placeholder values.
+  #
+  # Manifests here contain ${VAR} placeholders (see cluster-vars.example.env).
+  # Flux fills them in from the flux-system/cluster-vars ConfigMap; without
+  # Flux, render with `bin/render.sh <dir> | kubectl apply -f -`.

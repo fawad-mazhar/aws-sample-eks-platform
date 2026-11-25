@@ -2,9 +2,12 @@
 set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
+# shellcheck source=bin/load-env.sh
+. bin/load-env.sh
 
+# Read-only AWS calls. Credentials: AWS_PROFILE (e.g. from .env) or the
+# default credential chain.
 K8S_VERSION="${K8S_VERSION:-1.37}"
-PROFILE="${AWS_PROFILE:-nlaclassic}"
 REGION="${AWS_REGION:-eu-west-1}"
 fail=0
 
@@ -20,7 +23,6 @@ check_addon() {
 
 	offered_version=$(
 		aws eks describe-addon-versions \
-			--profile "$PROFILE" \
 			--region "$REGION" \
 			--kubernetes-version "$K8S_VERSION" \
 			--addon-name "$addon_name" \
@@ -51,6 +53,7 @@ environment_value() {
 check_addon coredns "$(module_default coredns_addon_version)"
 check_addon kube-proxy "$(module_default kube_proxy_addon_version)"
 check_addon vpc-cni "$(module_default cni_addon_version)"
+check_addon eks-pod-identity-agent "$(module_default pod_identity_agent_addon_version)"
 check_addon aws-ebs-csi-driver "$(environment_value ebs_csi_addon_version)"
 check_addon aws-efs-csi-driver "$(environment_value efs_csi_addon_version)"
 

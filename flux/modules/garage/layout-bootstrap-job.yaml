@@ -31,7 +31,7 @@ spec:
         runAsGroup: 10077
       containers:
         - name: kubectl
-          image: 228904764948.dkr.ecr.eu-west-1.amazonaws.com/nlaclassic-eu-west-1/kgateway-kubectl:1.22.8
+          image: ${ECR_REGISTRY}/${ENV_PREFIX}/kgateway-kubectl:1.22.8
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
@@ -78,7 +78,7 @@ spec:
                 # rather than hardcoding --version 1, so a partial-apply retry
                 # doesn't fail on a stale version number.
                 NEXT=$(kubectl exec -n "$NS" garage-0 -- /garage layout show | sed -nE 's/.*apply --version ([0-9]+).*/\1/p' | tail -1)
-                echo "Applying layout version ${NEXT}..."
+                echo "Applying layout version $NEXT..."
                 kubectl exec -n "$NS" garage-0 -- /garage layout apply --version "$NEXT"
               else
                 echo "Layout already assigned, skipping."

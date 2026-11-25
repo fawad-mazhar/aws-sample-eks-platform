@@ -35,6 +35,11 @@ variable "cni_addon_version" {
   default = "v1.22.4-eksbuild.14"
 }
 
+variable "pod_identity_agent_addon_version" {
+  type    = string
+  default = "v1.5.0-eksbuild.3"
+}
+
 variable "node_group_role_arn" {
   type        = string
   description = "ARN of the IAM role for EKS managed node groups."

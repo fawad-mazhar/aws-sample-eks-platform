@@ -1,4 +1,6 @@
-account_name = "nlaclassic"
-region       = "eu-west-1"
-environment  = "dev"
-vpc_id       = "vpc-00e377b27a8a29ba1"
+region      = "eu-west-1"
+environment = "dev"
+
+# Account-specific inputs are not set here. They come from TF_VAR_*
+# environment variables, normally loaded from the repo-root .env file (see
+# .env.example). Values in this file would override them.

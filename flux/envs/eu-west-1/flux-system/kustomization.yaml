@@ -1,5 +1,6 @@
 # One-time bootstrap step, applied manually after flux/modules/flux-system/
-# (the controllers themselves) is up: `kubectl apply -k
+# (the controllers themselves) is up and the flux-system/cluster-vars
+# ConfigMap exists (`bin/cluster-config.sh apply-flux`): `kubectl apply -k
 # flux/envs/eu-west-1/flux-system/`. From this point on, Flux reconciles
 # everything in the DAG below on its own -- but only once these manifests
 # are committed and pushed to `main` (source.yaml's GitRepository tracks
@@ -9,3 +10,20 @@ kind: Kustomization
 resources:
   - source.yaml
   - kustomizations.yaml
+# Every Kustomization substitutes ${VAR} placeholders (account registry, name
+# prefix, cluster name, optional hostname/certificate) from the cluster-vars
+# ConfigMap, which bin/cluster-config.sh generates from Terraform outputs.
+# Applied as one patch so a newly added Kustomization can't miss it.
+# Resources annotated kustomize.toolkit.fluxcd.io/substitute: disabled (the
+# CloudNativePG CRDs) are skipped.
+patches:
+  - target:
+      group: kustomize.toolkit.fluxcd.io
+      kind: Kustomization
+    patch: |-
+      - op: add
+        path: /spec/postBuild
+        value:
+          substituteFrom:
+            - kind: ConfigMap
+              name: cluster-vars

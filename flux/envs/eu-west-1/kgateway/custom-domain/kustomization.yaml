@@ -1,0 +1,22 @@
+# Opt-in custom domain with HTTPS. Enable it by uncommenting `- custom-domain`
+# under `components:` in ../kustomization.yaml, after setting
+# TF_VAR_domain_name and TF_VAR_acm_certificate_arn in .env and re-running
+# Terraform (see README "Custom domain").
+#
+# APP_HOSTNAME and ACM_CERTIFICATE_ARN come from the flux-system/cluster-vars
+# ConfigMap that bin/cluster-config.sh generates from Terraform outputs.
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+resources:
+  - healthcheck-vs.yaml
+patches:
+  - path: ingress-patch.yaml
+  - target:
+      group: gateway.solo.io
+      kind: VirtualService
+      name: sample-app-vs
+    patch: |-
+      - op: replace
+        path: /spec/virtualHost/domains
+        value:
+          - "${APP_HOSTNAME}"

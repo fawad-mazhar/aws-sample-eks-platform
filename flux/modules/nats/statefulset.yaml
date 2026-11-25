@@ -60,7 +60,7 @@ spec:
                 topologyKey: kubernetes.io/hostname
       containers:
         - name: nats
-          image: 228904764948.dkr.ecr.eu-west-1.amazonaws.com/nlaclassic-eu-west-1/nats:2.12.3
+          image: ${ECR_REGISTRY}/${ENV_PREFIX}/nats:2.12.3
           imagePullPolicy: IfNotPresent
           args: ["-c", "/etc/nats/nats.conf"]
           securityContext:
@@ -108,7 +108,7 @@ spec:
             - name: nats-data
               mountPath: /data
         - name: nats-exporter
-          image: 228904764948.dkr.ecr.eu-west-1.amazonaws.com/nlaclassic-eu-west-1/prometheus-nats-exporter:0.18.0
+          image: ${ECR_REGISTRY}/${ENV_PREFIX}/prometheus-nats-exporter:0.18.0
           imagePullPolicy: IfNotPresent
           args:
             - -connz

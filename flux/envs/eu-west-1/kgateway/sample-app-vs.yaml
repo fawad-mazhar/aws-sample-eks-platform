@@ -1,3 +1,7 @@
+# Default (no custom domain): matches any Host header, so the app is reachable
+# on the ALB's DNS name. It also answers the ALB target-group health check on
+# /healthz. With the custom-domain component enabled, domains is narrowed to
+# APP_HOSTNAME and healthcheck-vs takes over "*" for /healthz.
 apiVersion: gateway.solo.io/v1
 kind: VirtualService
 metadata:
@@ -6,8 +10,13 @@ metadata:
 spec:
   virtualHost:
     domains:
-      - "books.code-si.com"
+      - "*"
     routes:
+      - matchers:
+          - exact: /healthz
+        directResponseAction:
+          status: 200
+          body: "ok"
       - matchers:
           - prefix: /
         routeAction:

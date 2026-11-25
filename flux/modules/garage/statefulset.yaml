@@ -60,7 +60,7 @@ spec:
                 topologyKey: kubernetes.io/hostname
       containers:
         - name: garage
-          image: 228904764948.dkr.ecr.eu-west-1.amazonaws.com/nlaclassic-eu-west-1/garage:v2.3.0
+          image: ${ECR_REGISTRY}/${ENV_PREFIX}/garage:v2.3.0
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false

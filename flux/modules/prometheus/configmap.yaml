@@ -30,7 +30,7 @@ data:
               ]
             action: replace
             regex: ([^:]+)(?::\d+)?;(\d+)
-            replacement: "${1}:${2}"
+            replacement: "$1:$2"
             target_label: __address__
           - source_labels: [__meta_kubernetes_namespace]
             target_label: namespace

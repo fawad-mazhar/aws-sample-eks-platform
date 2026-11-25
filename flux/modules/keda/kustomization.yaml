@@ -18,11 +18,11 @@ resources:
   - keda-operator.yaml
 images:
   - name: ghcr.io/kedacore/keda
-    newName: 228904764948.dkr.ecr.eu-west-1.amazonaws.com/nlaclassic-eu-west-1/keda
+    newName: ${ECR_REGISTRY}/${ENV_PREFIX}/keda
     newTag: "2.21.1"
   - name: ghcr.io/kedacore/keda-metrics-apiserver
-    newName: 228904764948.dkr.ecr.eu-west-1.amazonaws.com/nlaclassic-eu-west-1/keda-metrics-apiserver
+    newName: ${ECR_REGISTRY}/${ENV_PREFIX}/keda-metrics-apiserver
     newTag: "2.21.1"
   - name: ghcr.io/kedacore/keda-admission-webhooks
-    newName: 228904764948.dkr.ecr.eu-west-1.amazonaws.com/nlaclassic-eu-west-1/keda-admission-webhooks
+    newName: ${ECR_REGISTRY}/${ENV_PREFIX}/keda-admission-webhooks
     newTag: "2.21.1"

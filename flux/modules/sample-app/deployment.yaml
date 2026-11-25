@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
         - name: web
-          image: 228904764948.dkr.ecr.eu-west-1.amazonaws.com/nlaclassic-eu-west-1/sample-app:1.0.0
+          image: ${ECR_REGISTRY}/${ENV_PREFIX}/sample-app:1.0.0
           ports:
             - containerPort: 8000
           envFrom:

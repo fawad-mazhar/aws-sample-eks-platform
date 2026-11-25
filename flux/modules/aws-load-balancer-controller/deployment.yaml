@@ -11,8 +11,6 @@ metadata:
     app.kubernetes.io/name: aws-load-balancer-controller
     app.kubernetes.io/instance: aws-load-balancer-controller
     app.kubernetes.io/version: "v3.6.3"
-  annotations:
-    eks.amazonaws.com/role-arn: arn:aws:iam::228904764948:role/nlaclassic-eu-west-1-aws-load-balancer-controller
 automountServiceAccountToken: true
 ---
 # Source: aws-load-balancer-controller/templates/rbac.yaml

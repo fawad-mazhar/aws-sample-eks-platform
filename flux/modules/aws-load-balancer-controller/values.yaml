@@ -6,9 +6,8 @@ vpcId: configured-by-cluster-information
 
 enableCertManager: true
 
-serviceAccount:
-  annotations:
-    eks.amazonaws.com/role-arn: arn:aws:iam::228904764948:role/nlaclassic-eu-west-1-aws-load-balancer-controller
+# No serviceAccount role-arn annotation: the IAM role is bound through an
+# EKS Pod Identity association in Terraform (aws/envs/eu-west-1).
 
 podSecurityContext:
   fsGroup: 1337

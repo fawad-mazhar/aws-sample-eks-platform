@@ -13,13 +13,13 @@ resources:
   # Fail) isn't Ready yet to admit it.
 images:
   - name: quay.io/jetstack/cert-manager-cainjector
-    newName: 228904764948.dkr.ecr.eu-west-1.amazonaws.com/nlaclassic-eu-west-1/cert-manager-cainjector
+    newName: ${ECR_REGISTRY}/${ENV_PREFIX}/cert-manager-cainjector
     newTag: 1.21.3
   - name: quay.io/jetstack/cert-manager-controller
-    newName: 228904764948.dkr.ecr.eu-west-1.amazonaws.com/nlaclassic-eu-west-1/cert-manager-controller
+    newName: ${ECR_REGISTRY}/${ENV_PREFIX}/cert-manager-controller
     newTag: 1.21.3
   - name: quay.io/jetstack/cert-manager-webhook
-    newName: 228904764948.dkr.ecr.eu-west-1.amazonaws.com/nlaclassic-eu-west-1/cert-manager-webhook
+    newName: ${ECR_REGISTRY}/${ENV_PREFIX}/cert-manager-webhook
     newTag: 1.21.3
 patches:
   - patch: |-

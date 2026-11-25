@@ -10,13 +10,12 @@ nodeSelector:
 settings:
   clusterName: configured-by-cluster-information
 
-serviceAccount:
-  annotations:
-    eks.amazonaws.com/role-arn: arn:aws:iam::228904764948:role/nlaclassic-eu-west-1-karpenter
+# No serviceAccount role-arn annotation: the IAM role is bound through an
+# EKS Pod Identity association in Terraform (aws/envs/eu-west-1).
 
 controller:
   image:
-    repository: 228904764948.dkr.ecr.eu-west-1.amazonaws.com/nlaclassic-eu-west-1/karpenter
+    repository: ${ECR_REGISTRY}/${ENV_PREFIX}/karpenter
     tag: 1.15.2
     digest: ""
   resources:

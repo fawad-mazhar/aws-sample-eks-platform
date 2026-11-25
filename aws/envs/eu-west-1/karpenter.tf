@@ -1,27 +1,3 @@
-# IRSA trust policy for Karpenter controller (overrides default Pod Identity)
-data "aws_iam_policy_document" "karpenter_irsa_assume" {
-  statement {
-    actions = ["sts:AssumeRoleWithWebIdentity"]
-
-    principals {
-      type        = "Federated"
-      identifiers = [module.eks_cluster.oidc_provider_arn]
-    }
-
-    condition {
-      test     = "StringEquals"
-      variable = "${module.eks_cluster.oidc_provider}:sub"
-      values   = ["system:serviceaccount:kube-system:karpenter"]
-    }
-
-    condition {
-      test     = "StringEquals"
-      variable = "${module.eks_cluster.oidc_provider}:aud"
-      values   = ["sts.amazonaws.com"]
-    }
-  }
-}
-
 module "karpenter" {
   source  = "terraform-aws-modules/eks/aws//modules/karpenter"
   version = "21.30.2"
@@ -29,9 +5,10 @@ module "karpenter" {
   cluster_name = module.eks_cluster.cluster_name
   namespace    = "kube-system"
 
-  # Use IRSA instead of Pod Identity
-  create_pod_identity_association           = false
-  iam_role_override_assume_policy_documents = [data.aws_iam_policy_document.karpenter_irsa_assume.json]
+  # EKS Pod Identity (module default): the association binds the controller
+  # role to kube-system/karpenter, so the ServiceAccount needs no role-arn
+  # annotation and the manifests carry no account ID.
+  create_pod_identity_association = true
 
   # Node role
   node_iam_role_use_name_prefix = false

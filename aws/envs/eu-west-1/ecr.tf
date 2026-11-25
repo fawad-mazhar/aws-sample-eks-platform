@@ -75,5 +75,4 @@ module "ecr" {
   image_tag       = each.value.image_tag
   platforms       = try(each.value.platforms, ["linux/amd64", "linux/arm64"])
   region          = var.region
-  aws_profile     = "nlaclassic"
 }

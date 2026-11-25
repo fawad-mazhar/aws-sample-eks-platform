@@ -42,6 +42,15 @@ module "eks" {
         resolve_conflicts_on_create = "OVERWRITE"
         resolve_conflicts_on_update = "PRESERVE"
       }
+      # Serves EKS Pod Identity credentials (ALB controller, Cluster
+      # Autoscaler, Karpenter). Installed before compute so the agent is
+      # running before any controller pod starts.
+      eks-pod-identity-agent = {
+        addon_version               = var.pod_identity_agent_addon_version
+        before_compute              = true
+        resolve_conflicts_on_create = "OVERWRITE"
+        resolve_conflicts_on_update = "PRESERVE"
+      }
     },
     var.ebs_csi_addon_version != "" && var.ebs_csi_addon_role_arn != "" ? {
       aws-ebs-csi-driver = {

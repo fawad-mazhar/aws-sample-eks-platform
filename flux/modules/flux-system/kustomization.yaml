@@ -19,3 +19,13 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - install.yaml
+# Fail a reconciliation when a manifest uses a ${VAR} that the cluster-vars
+# ConfigMap doesn't define, instead of silently substituting an empty string.
+patches:
+  - target:
+      kind: Deployment
+      name: kustomize-controller
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/args/-
+        value: --feature-gates=StrictPostBuildSubstitutions=true

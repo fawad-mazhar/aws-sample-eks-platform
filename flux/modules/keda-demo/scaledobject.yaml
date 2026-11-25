@@ -1,5 +1,5 @@
 # Real (not inert) KEDA usage example: scales the actual sample-app
-# Deployment that serves books.code-si.com, not a throwaway demo pod
+# Deployment behind the kgateway ALB, not a throwaway demo pod
 # (contrast with karpenter-config/inflate.yaml, which is a 0-replica
 # opt-in-only example that never touches real traffic).
 #

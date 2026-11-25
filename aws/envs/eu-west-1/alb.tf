@@ -268,13 +268,12 @@ data "aws_iam_policy_document" "alb_controller" {
   }
 }
 
-module "alb_controller_irsa" {
-  source = "../../modules/eks-oidc-iam"
+module "alb_controller_pod_identity" {
+  source = "../../modules/eks-pod-identity-iam"
 
   env_prefix           = local.env_prefix
   role_name            = "aws-load-balancer-controller"
-  oidc_provider_arn    = module.eks_cluster.oidc_provider_arn
-  oidc_issuer          = module.eks_cluster.oidc_provider
+  cluster_name         = module.eks_cluster.cluster_name
   namespace            = "kube-system"
   service_account_name = "aws-load-balancer-controller"
   policy_json          = data.aws_iam_policy_document.alb_controller.json

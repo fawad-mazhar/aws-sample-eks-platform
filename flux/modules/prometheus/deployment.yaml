@@ -39,7 +39,7 @@ spec:
         fsGroup: 10071
       containers:
         - name: prometheus
-          image: 228904764948.dkr.ecr.eu-west-1.amazonaws.com/nlaclassic-eu-west-1/prometheus:v3.9.1
+          image: ${ECR_REGISTRY}/${ENV_PREFIX}/prometheus:v3.9.1
           args:
             - --config.file=/etc/prometheus/prometheus.yml
             - --storage.tsdb.path=/prometheus

@@ -8,6 +8,11 @@ OUT="build/validate"
 CONVERTER_VERSION="v0.8.0"
 CONVERTER_URL="https://raw.githubusercontent.com/yannh/kubeconform/${CONVERTER_VERSION}/scripts/openapi2jsonschema.py"
 VENV_PYTHON="build/venv/bin/python"
+# Example values for the ${VAR} placeholders, so the gate needs no AWS account.
+VARS_FILE="${VARS_FILE:-flux/envs/eu-west-1/cluster-vars.example.env}"
+# Generated below: the kgateway overlay with the opt-in custom-domain
+# component enabled, so both variants are validated.
+CUSTOM_DOMAIN_OVERLAY="$OUT/overlays/kgateway-custom-domain"
 ENTRY_POINTS=("$@")
 
 if [ "${#ENTRY_POINTS[@]}" -eq 0 ]; then
@@ -17,6 +22,7 @@ if [ "${#ENTRY_POINTS[@]}" -eq 0 ]; then
 		flux/envs/eu-west-1/flux-system
 		flux/modules/flux-system
 		flux/modules/keda-demo
+		"$CUSTOM_DOMAIN_OVERLAY"
 	)
 fi
 
@@ -33,20 +39,44 @@ if [ ! -x "$VENV_PYTHON" ]; then
 	exit 1
 fi
 
+if [ ! -f "$VARS_FILE" ]; then
+	echo "Variables file not found: $VARS_FILE" >&2
+	exit 1
+fi
+
 for entry_point in "${ENTRY_POINTS[@]}"; do
-	if [ ! -d "$entry_point" ]; then
+	if [ "$entry_point" != "$CUSTOM_DOMAIN_OVERLAY" ] && [ ! -d "$entry_point" ]; then
 		echo "Kustomize entry point not found: $entry_point" >&2
 		exit 1
 	fi
 done
 
 rm -rf "$OUT"
-mkdir -p "$OUT/rendered" "$OUT/schemas" "$OUT/schema-cache"
+mkdir -p "$OUT/rendered" "$OUT/schemas" "$OUT/schema-cache" "$CUSTOM_DOMAIN_OVERLAY"
+
+printf '%s\n' \
+	'apiVersion: kustomize.config.k8s.io/v1beta1' \
+	'kind: Kustomization' \
+	'resources:' \
+	'  - ../../../../flux/envs/eu-west-1/kgateway' \
+	'components:' \
+	'  - ../../../../flux/envs/eu-west-1/kgateway/custom-domain' \
+	> "$CUSTOM_DOMAIN_OVERLAY/kustomization.yaml"
 
 for entry_point in "${ENTRY_POINTS[@]}"; do
 	output="$OUT/rendered/$(printf '%s' "$entry_point" | tr '/' '_').yaml"
-	echo "Rendering $entry_point"
-	kustomize build "$entry_point" > "$output"
+	case "$entry_point" in
+		*flux-system)
+			# Bootstrap manifests applied with kubectl; Flux never substitutes them.
+			echo "Rendering $entry_point"
+			kustomize build "$entry_point" > "$output"
+			;;
+		*)
+			# Reconciled by Flux Kustomizations that substitute from cluster-vars.
+			echo "Rendering $entry_point (variables from $VARS_FILE)"
+			kustomize build "$entry_point" | python3 bin/flux-envsubst.py "$VARS_FILE" > "$output"
+			;;
+	esac
 done
 
 curl -fsSL "$CONVERTER_URL" -o "$OUT/openapi2jsonschema.py"
