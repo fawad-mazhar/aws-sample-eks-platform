@@ -52,7 +52,10 @@ module "eks" {
         resolve_conflicts_on_update = "PRESERVE"
       }
     },
-    var.ebs_csi_addon_version != "" && var.ebs_csi_addon_role_arn != "" ? {
+    # Keyed on the version only. The role ARN isn't known until the role is
+    # created, and an unknown condition here would make the whole addons map
+    # unknown at plan time, which the EKS module can't for_each over.
+    var.ebs_csi_addon_version != "" ? {
       aws-ebs-csi-driver = {
         addon_version               = var.ebs_csi_addon_version
         service_account_role_arn    = var.ebs_csi_addon_role_arn
@@ -60,7 +63,7 @@ module "eks" {
         resolve_conflicts_on_update = "PRESERVE"
       }
     } : {},
-    var.efs_csi_addon_version != "" && var.efs_csi_addon_role_arn != "" ? {
+    var.efs_csi_addon_version != "" ? {
       aws-efs-csi-driver = {
         addon_version               = var.efs_csi_addon_version
         service_account_role_arn    = var.efs_csi_addon_role_arn

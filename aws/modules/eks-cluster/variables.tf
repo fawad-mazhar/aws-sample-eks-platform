@@ -73,7 +73,7 @@ variable "ebs_csi_addon_version" {
 variable "ebs_csi_addon_role_arn" {
   type        = string
   default     = ""
-  description = "IRSA role ARN for the EBS CSI driver."
+  description = "IRSA role ARN for the EBS CSI driver. Required when ebs_csi_addon_version is set."
 }
 
 variable "efs_csi_addon_version" {
@@ -85,5 +85,5 @@ variable "efs_csi_addon_version" {
 variable "efs_csi_addon_role_arn" {
   type        = string
   default     = ""
-  description = "IRSA role ARN for the EFS CSI driver."
+  description = "IRSA role ARN for the EFS CSI driver. Required when efs_csi_addon_version is set."
 }
