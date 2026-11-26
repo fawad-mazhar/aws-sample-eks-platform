@@ -5,7 +5,7 @@ data "aws_iam_policy" "efs_csi_driver" {
 module "efs_csi_irsa" {
   source = "../../modules/eks-oidc-iam"
 
-  env_prefix           = local.env_prefix
+  resource_prefix      = local.resource_prefix
   role_name            = "efs-csi"
   oidc_provider_arn    = module.eks_cluster.oidc_provider_arn
   oidc_issuer          = module.eks_cluster.oidc_provider
@@ -22,17 +22,17 @@ resource "aws_efs_file_system" "this" {
   }
 
   tags = {
-    Name = "${local.env_prefix}-efs"
+    Name = "${local.resource_prefix}-efs"
   }
 }
 
 resource "aws_security_group" "efs" {
-  name_prefix = "${local.env_prefix}-efs-"
+  name_prefix = "${local.resource_prefix}-efs-"
   description = "Allow NFS access from EKS cluster"
   vpc_id      = data.aws_vpc.this.id
 
   tags = {
-    Name = "${local.env_prefix}-efs"
+    Name = "${local.resource_prefix}-efs"
   }
 }
 

@@ -97,7 +97,7 @@ spec:
             capabilities:
               drop:
                 - ALL
-          image: ${ECR_REGISTRY}/${ENV_PREFIX}/karpenter:1.15.2
+          image: ${ECR_REGISTRY}/${ENV_PREFIX}-karpenter:1.15.2
           imagePullPolicy: IfNotPresent
           env:
             - name: KUBERNETES_MIN_VERSION

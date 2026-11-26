@@ -31,7 +31,7 @@ spec:
         runAsGroup: 10077
       containers:
         - name: kubectl
-          image: ${ECR_REGISTRY}/${ENV_PREFIX}/kgateway-kubectl:1.22.8
+          image: ${ECR_REGISTRY}/${ENV_PREFIX}-kgateway-kubectl:1.22.8
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false

@@ -31,16 +31,16 @@ data "aws_iam_policy_document" "assume" {
 }
 
 resource "aws_iam_role" "this" {
-  name               = "${var.env_prefix}-${var.role_name}"
+  name               = "${var.resource_prefix}-${var.role_name}"
   assume_role_policy = data.aws_iam_policy_document.assume.json
 
   tags = {
-    Name = "${var.env_prefix}-${var.role_name}"
+    Name = "${var.resource_prefix}-${var.role_name}"
   }
 }
 
 resource "aws_iam_role_policy" "this" {
-  name   = var.role_name
+  name   = "${var.resource_prefix}-${var.role_name}"
   role   = aws_iam_role.this.id
   policy = var.policy_json
 }

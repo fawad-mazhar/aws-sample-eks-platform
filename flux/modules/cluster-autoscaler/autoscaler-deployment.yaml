@@ -25,7 +25,7 @@ spec:
         runAsGroup: 10070
         runAsUser: 10070
       containers:
-        - image: ${ECR_REGISTRY}/${ENV_PREFIX}/cluster-autoscaler:v1.37.0
+        - image: ${ECR_REGISTRY}/${ENV_PREFIX}-cluster-autoscaler:v1.37.0
           name: cluster-autoscaler
           securityContext:
             readOnlyRootFilesystem: true

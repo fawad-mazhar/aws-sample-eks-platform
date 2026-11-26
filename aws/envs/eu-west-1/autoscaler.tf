@@ -39,7 +39,7 @@ data "aws_iam_policy_document" "cluster_autoscaler" {
 module "cluster_autoscaler_pod_identity" {
   source = "../../modules/eks-pod-identity-iam"
 
-  env_prefix           = local.env_prefix
+  resource_prefix      = local.resource_prefix
   role_name            = "cluster-autoscaler"
   cluster_name         = module.eks_cluster.cluster_name
   namespace            = "autoscaling-system"

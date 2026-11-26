@@ -271,7 +271,7 @@ data "aws_iam_policy_document" "alb_controller" {
 module "alb_controller_pod_identity" {
   source = "../../modules/eks-pod-identity-iam"
 
-  env_prefix           = local.env_prefix
+  resource_prefix      = local.resource_prefix
   role_name            = "aws-load-balancer-controller"
   cluster_name         = module.eks_cluster.cluster_name
   namespace            = "gateway-system"

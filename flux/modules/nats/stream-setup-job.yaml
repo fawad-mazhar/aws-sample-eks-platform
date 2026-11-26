@@ -26,7 +26,7 @@ spec:
         runAsGroup: 10075
       containers:
         - name: nats-box
-          image: ${ECR_REGISTRY}/${ENV_PREFIX}/nats-box:0.19.2
+          image: ${ECR_REGISTRY}/${ENV_PREFIX}-nats-box:0.19.2
           imagePullPolicy: IfNotPresent
           workingDir: /tmp
           securityContext:

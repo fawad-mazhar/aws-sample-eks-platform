@@ -70,7 +70,7 @@ module "ecr" {
   source   = "../../modules/ecr"
   for_each = local.ecr_repositories
 
-  repository_name = "${local.env_prefix}/${each.key}"
+  repository_name = "${local.resource_prefix}-${each.key}"
   source_path     = "${path.module}/../../../applications/${each.key}"
   image_tag       = each.value.image_tag
   platforms       = try(each.value.platforms, ["linux/amd64", "linux/arm64"])

@@ -115,7 +115,7 @@ output "cluster_information" {
 output "flux_vars" {
   value = {
     ECR_REGISTRY        = local.ecr_registry
-    ENV_PREFIX          = local.env_prefix
+    ENV_PREFIX          = local.resource_prefix
     CLUSTER_NAME        = module.eks_cluster.cluster_name
     KARPENTER_NODE_ROLE = module.karpenter.node_iam_role_name
     APP_HOSTNAME        = local.app_hostname

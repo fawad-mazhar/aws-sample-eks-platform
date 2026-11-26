@@ -21,11 +21,11 @@ data "aws_iam_policy_document" "fargate_assume_role" {
 }
 
 resource "aws_iam_role" "fargate" {
-  name               = "${var.env_prefix}-eks-fargate"
+  name               = "${var.resource_prefix}-eks-fargate"
   assume_role_policy = data.aws_iam_policy_document.fargate_assume_role.json
 
   tags = {
-    Name = "${var.env_prefix}-eks-fargate"
+    Name = "${var.resource_prefix}-eks-fargate"
   }
 }
 

@@ -132,16 +132,28 @@ if [ "${#manifest_images[@]}" -gt 0 ]; then
 			fi
 
 			image_name="${manifest_image##*/}"
-			repository="${image_name%%:*}"
+			tagged_repository="${image_name%%:*}"
 			tag="${image_name#*:}"
 
-			if ! awk -v repository="$repository" -v tag="$tag" '
-				$1 == repository && $2 == "=" && $3 == "{" { in_repository = 1 }
-				in_repository && $1 == "image_tag" && $3 == ("\"" tag "\"") { found = 1 }
-				in_repository && $1 == "}" { if (found) exit 0; in_repository = 0 }
+			if ! awk -v tagged_repository="$tagged_repository" -v tag="$tag" '
+				$2 == "=" && $3 == "{" {
+					repository = $1
+					in_repository = 1
+					next
+				}
+				in_repository &&
+					$1 == "image_tag" &&
+					$3 == ("\"" tag "\"") &&
+					tagged_repository ~ ("^[a-z][a-z0-9]*-[a-z][a-z0-9-]*-" repository "$") {
+						found = 1
+				}
+				in_repository && $1 == "}" {
+					if (found) exit 0
+					in_repository = 0
+				}
 				END { exit found ? 0 : 1 }
 			' "$ECR_TF"; then
-				echo "NOT IN ecr.tf  $repository:$tag"
+				echo "NOT IN ecr.tf  $tagged_repository:$tag"
 				fail=1
 			fi
 		else

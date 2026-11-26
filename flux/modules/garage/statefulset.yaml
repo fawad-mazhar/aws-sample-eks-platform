@@ -60,7 +60,7 @@ spec:
                 topologyKey: kubernetes.io/hostname
       containers:
         - name: garage
-          image: ${ECR_REGISTRY}/${ENV_PREFIX}/garage:v2.3.0
+          image: ${ECR_REGISTRY}/${ENV_PREFIX}-garage:v2.3.0
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false

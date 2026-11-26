@@ -18,8 +18,10 @@ provider "aws" {
 
   default_tags {
     tags = {
-      environment  = var.environment
-      account-name = var.account_name
+      environment = var.environment
+      managed-by  = "terraform"
+      project     = "aws-sample-eks-platform"
+      region      = var.region
     }
   }
 }

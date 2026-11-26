@@ -141,7 +141,9 @@ wait for each dependency's readiness gate before creating its consumers.
   Every private image receives an ECR repository, lifecycle policy and
   `terraform_data` build/push resource. The mirrored images include
   cert-manager, KEDA, Prometheus, NATS, Garage, Cluster Autoscaler, Karpenter,
-  kgateway, sealed-secrets and the sample application.
+  kgateway, sealed-secrets and the sample application. Repository names follow
+  `<environment>-<resource>` (for example `eu-dev-sample-app`) and are
+  referenced by Flux using the same tag.
 
   The repository must exist before its build can push. Image builds are
   independent of EKS readiness and run alongside other infrastructure work.
@@ -620,8 +622,8 @@ available.
 <details>
   <summary>Account configuration and placeholder substitution</summary>
 
-Nothing account-specific is committed. Your AWS profile, resource name
-prefix, VPC and (optionally) domain live in a git-ignored `.env` file:
+Nothing account-specific is committed. Your AWS profile, environment tag,
+VPC and (optionally) domain live in a git-ignored `.env` file:
 
 ```bash
 cp .env.example .env    # then edit it
@@ -634,9 +636,31 @@ cp .env.example .env    # then edit it
 set -a; . ./.env; set +a
 ```
 
+`TF_VAR_environment` is the short deployment tag and defaults to `eu-dev`.
+Platform-owned compute, IAM, storage and image names use
+`<environment>-<resource>`:
+
+| Environment tag | Physical region | Example EKS name | Example ECR repository |
+| --- | --- | --- | --- |
+| `eu-dev` | `eu-west-1` | `eu-dev-eks` | `eu-dev-sample-app` |
+| `eu-prd` | `eu-west-1` | `eu-prd-eks` | `eu-prd-sample-app` |
+| `us-dev` | a US region root such as `us-east-1` | `us-dev-eks` | `us-dev-sample-app` |
+| `us-stg` | a US region root such as `us-east-1` | `us-stg-eks` | `us-stg-sample-app` |
+
+Keep the tag stable after creation. Changing it changes names and therefore
+causes Terraform to replace name-immutable resources, including the EKS
+cluster, IAM roles and ECR repositories.
+
+The environment tag is not the physical region. The AWS provider attaches
+`environment`, `region`, `project` and `managed-by` default tags to every
+taggable resource. Resource-specific `Name` tags use the same
+`<environment>-<resource>` value where a prefixable platform name exists;
+domain-controlled names, such as a Route53 zone, retain their required DNS
+value.
+
 Terraform reads its inputs from the `TF_VAR_*` variables. The Kubernetes
-manifests contain `${VAR}` placeholders (ECR registry, name prefix, cluster
-name, optional hostname and certificate). Flux fills them in from the
+manifests contain `${VAR}` placeholders (ECR registry, environment tag,
+cluster name, optional hostname and certificate). Flux fills them in from the
 `flux-system/cluster-vars` ConfigMap, which `bin/cluster-config.sh` generates
 from Terraform outputs. Without Flux, `bin/render.sh` does the same locally.
 `flux/envs/eu-west-1/cluster-vars.example.env` lists the variables.

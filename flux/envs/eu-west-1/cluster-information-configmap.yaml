@@ -8,8 +8,8 @@ metadata:
   name: cluster-information
   namespace: kube-system
 data:
-  cluster-name: demo-eu-west-1-eks
+  cluster-name: eu-dev-eks
   aws-region: eu-west-1
   aws-vpc-id: vpc-0123456789abcdef0
   cluster-endpoint: https://EXAMPLE.gr7.eu-west-1.eks.amazonaws.com
-  karpenter-queue: demo-eu-west-1-karpenter
+  karpenter-queue: eu-dev-karpenter

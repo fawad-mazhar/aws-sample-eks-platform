@@ -1,5 +1,4 @@
-region      = "eu-west-1"
-environment = "dev"
+region = "eu-west-1"
 
 # Account-specific inputs are not set here. They come from TF_VAR_*
 # environment variables, normally loaded from the repo-root .env file (see

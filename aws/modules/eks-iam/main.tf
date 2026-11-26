@@ -21,11 +21,11 @@ data "aws_iam_policy_document" "cluster_assume_role" {
 }
 
 resource "aws_iam_role" "cluster" {
-  name               = "${var.env_prefix}-eks-cluster"
+  name               = "${var.resource_prefix}-eks-cluster"
   assume_role_policy = data.aws_iam_policy_document.cluster_assume_role.json
 
   tags = {
-    Name = "${var.env_prefix}-eks-cluster"
+    Name = "${var.resource_prefix}-eks-cluster"
   }
 }
 
@@ -48,11 +48,11 @@ data "aws_iam_policy_document" "node_group_assume_role" {
 }
 
 resource "aws_iam_role" "node_group" {
-  name               = "${var.env_prefix}-eks-node-group"
+  name               = "${var.resource_prefix}-eks-node-group"
   assume_role_policy = data.aws_iam_policy_document.node_group_assume_role.json
 
   tags = {
-    Name = "${var.env_prefix}-eks-node-group"
+    Name = "${var.resource_prefix}-eks-node-group"
   }
 }
 

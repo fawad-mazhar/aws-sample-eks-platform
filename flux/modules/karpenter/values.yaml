@@ -15,7 +15,7 @@ settings:
 
 controller:
   image:
-    repository: ${ECR_REGISTRY}/${ENV_PREFIX}/karpenter
+    repository: ${ECR_REGISTRY}/${ENV_PREFIX}-karpenter
     tag: 1.15.2
     digest: ""
   resources:

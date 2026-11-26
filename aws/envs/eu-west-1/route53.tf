@@ -51,7 +51,7 @@ data "aws_lb" "ingress" {
 
   tags = {
     "elbv2.k8s.aws/cluster" = local.eks_cluster_name
-    "ingress.k8s.aws/stack" = "${local.env_prefix}-ingress"
+    "ingress.k8s.aws/stack" = "${local.resource_prefix}-ingress"
   }
 }
 

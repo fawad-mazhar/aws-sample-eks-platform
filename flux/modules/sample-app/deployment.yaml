@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
         - name: web
-          image: ${ECR_REGISTRY}/${ENV_PREFIX}/sample-app:1.0.0
+          image: ${ECR_REGISTRY}/${ENV_PREFIX}-sample-app:1.0.0
           ports:
             - containerPort: 8000
           envFrom:

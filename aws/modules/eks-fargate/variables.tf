@@ -1,4 +1,4 @@
-variable "env_prefix" {
+variable "resource_prefix" {
   type        = string
-  description = "Environment prefix for resource naming (e.g. demo-eu-west-1)."
+  description = "Short environment tag for resource naming (e.g. eu-dev)."
 }
