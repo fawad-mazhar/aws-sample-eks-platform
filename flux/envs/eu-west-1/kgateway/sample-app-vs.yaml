@@ -6,7 +6,7 @@ apiVersion: gateway.solo.io/v1
 kind: VirtualService
 metadata:
   name: sample-app-vs
-  namespace: kgateway
+  namespace: gateway-system
 spec:
   virtualHost:
     domains:
@@ -23,4 +23,4 @@ spec:
           single:
             upstream:
               name: sample-app-fastapi-service-80
-              namespace: kgateway
+              namespace: gateway-system

@@ -2,7 +2,7 @@ apiVersion: gateway.solo.io/v1
 kind: VirtualService
 metadata:
   name: healthcheck-vs
-  namespace: kgateway
+  namespace: gateway-system
 spec:
   virtualHost:
     # Matches any Host header, including the ALB target-group health check

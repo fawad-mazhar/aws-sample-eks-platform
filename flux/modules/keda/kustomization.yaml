@@ -1,5 +1,5 @@
 # Vendored from `helm template keda kedacore/keda --version 2.21.1
-# --namespace kube-system --set crds.install=false` -- pinned to 2.21.1 to
+# --namespace autoscaling-system --set crds.install=false` -- pinned to 2.21.1 to
 # match the image tag
 # already built and mirrored to ECR by aws/envs/eu-west-1/ecr.tf. Split into
 # crds/ (CRDs only) and keda-operator.yaml (operator +

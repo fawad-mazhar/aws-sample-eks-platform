@@ -1,7 +1,7 @@
 # Regenerate with:
 #   helm template aws-load-balancer-controller \
 #     eks/aws-load-balancer-controller --version 3.6.3 \
-#     --namespace kube-system --values values.yaml > deployment.yaml
+#     --namespace gateway-system --values values.yaml > deployment.yaml
 #   helm show crds eks/aws-load-balancer-controller --version 3.6.3 |
 #     awk '/^---$/ { if (doc !~ /name: (listenerruleconfigurations|loadbalancerconfigurations|targetgroupconfigurations)\.gateway\.k8s\.aws/) printf "%s", doc; doc = "---\n"; next } { doc = doc $0 "\n" } END { if (doc !~ /name: (listenerruleconfigurations|loadbalancerconfigurations|targetgroupconfigurations)\.gateway\.k8s\.aws/) printf "%s", doc }' \
 #     > crds/crds.yaml

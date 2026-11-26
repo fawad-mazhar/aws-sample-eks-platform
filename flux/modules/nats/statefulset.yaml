@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: nats
-  namespace: nats
+  namespace: messaging
   labels:
     app: nats
 spec:

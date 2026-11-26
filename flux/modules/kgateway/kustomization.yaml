@@ -1,6 +1,6 @@
 # Regenerate with:
 #   helm template gloo gloo/gloo --version 1.22.8 \
-#     --namespace kgateway --values values.yaml > kgateway.yaml
+#     --namespace gateway-system --values values.yaml > kgateway.yaml
 #   helm show crds gloo/gloo --version 1.22.8 > crds/kgateway-crds.yaml
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
@@ -29,42 +29,42 @@ patches:
       kind: Job
       metadata:
         name: gloo-resource-cleanup
-        namespace: kgateway
+        namespace: gateway-system
       $patch: delete
   - patch: |-
       apiVersion: batch/v1
       kind: Job
       metadata:
         name: gloo-resource-migration
-        namespace: kgateway
+        namespace: gateway-system
       $patch: delete
   - patch: |-
       apiVersion: batch/v1
       kind: Job
       metadata:
         name: gloo-resource-rollout-cleanup
-        namespace: kgateway
+        namespace: gateway-system
       $patch: delete
   - patch: |-
       apiVersion: v1
       kind: ServiceAccount
       metadata:
         name: gloo-resource-cleanup
-        namespace: kgateway
+        namespace: gateway-system
       $patch: delete
   - patch: |-
       apiVersion: v1
       kind: ServiceAccount
       metadata:
         name: gloo-resource-migration
-        namespace: kgateway
+        namespace: gateway-system
       $patch: delete
   - patch: |-
       apiVersion: v1
       kind: ServiceAccount
       metadata:
         name: gloo-resource-rollout-cleanup
-        namespace: kgateway
+        namespace: gateway-system
       $patch: delete
   - patch: |-
       apiVersion: rbac.authorization.k8s.io/v1
@@ -95,40 +95,40 @@ patches:
       kind: Role
       metadata:
         name: gloo-resource-cleanup
-        namespace: kgateway
+        namespace: gateway-system
       $patch: delete
   - patch: |-
       apiVersion: rbac.authorization.k8s.io/v1
       kind: Role
       metadata:
         name: gloo-resource-migration
-        namespace: kgateway
+        namespace: gateway-system
       $patch: delete
   - patch: |-
       apiVersion: rbac.authorization.k8s.io/v1
       kind: Role
       metadata:
         name: gloo-resource-rollout-cleanup
-        namespace: kgateway
+        namespace: gateway-system
       $patch: delete
   - patch: |-
       apiVersion: rbac.authorization.k8s.io/v1
       kind: RoleBinding
       metadata:
         name: gloo-resource-cleanup
-        namespace: kgateway
+        namespace: gateway-system
       $patch: delete
   - patch: |-
       apiVersion: rbac.authorization.k8s.io/v1
       kind: RoleBinding
       metadata:
         name: gloo-resource-migration
-        namespace: kgateway
+        namespace: gateway-system
       $patch: delete
   - patch: |-
       apiVersion: rbac.authorization.k8s.io/v1
       kind: RoleBinding
       metadata:
         name: gloo-resource-rollout-cleanup
-        namespace: kgateway
+        namespace: gateway-system
       $patch: delete

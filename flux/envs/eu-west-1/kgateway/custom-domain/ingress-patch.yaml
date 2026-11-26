@@ -4,7 +4,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: kgateway-alb
-  namespace: kgateway
+  namespace: gateway-system
   annotations:
     # TLS configuration (ALB terminates TLS; the backend stays HTTP)
     alb.ingress.kubernetes.io/certificate-arn: ${ACM_CERTIFICATE_ARN}

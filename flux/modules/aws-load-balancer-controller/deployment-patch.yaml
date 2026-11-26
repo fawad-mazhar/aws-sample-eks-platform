@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: aws-load-balancer-controller
-  namespace: kube-system
+  namespace: gateway-system
 spec:
   template:
     spec:

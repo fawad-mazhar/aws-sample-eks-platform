@@ -42,7 +42,7 @@ module "cluster_autoscaler_pod_identity" {
   env_prefix           = local.env_prefix
   role_name            = "cluster-autoscaler"
   cluster_name         = module.eks_cluster.cluster_name
-  namespace            = "kube-system"
+  namespace            = "autoscaling-system"
   service_account_name = "cluster-autoscaler"
   policy_json          = data.aws_iam_policy_document.cluster_autoscaler.json
 }

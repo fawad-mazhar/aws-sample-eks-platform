@@ -1,11 +1,12 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
+  - apps-demo-namespace.yaml
+  - autoscaling-system-namespace.yaml
   - aws-observability-namespace.yaml
   - cert-manager-namespace.yaml
   - cnpg-system-namespace.yaml
-  - fargate-namespace.yaml
-  - garage-namespace.yaml
-  - kgateway-namespace.yaml
-  - nats-namespace.yaml
-  - sample-app-namespace.yaml
+  - gateway-system-namespace.yaml
+  - messaging-namespace.yaml
+  - object-storage-namespace.yaml
+  - observability-namespace.yaml

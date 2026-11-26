@@ -7,7 +7,7 @@ metadata:
     app: gloo
     gloo: gloo
   name: gloo
-  namespace: kgateway
+  namespace: gateway-system
 ---
 # Source: gloo/templates/3-discovery-service-account.yaml
 apiVersion: v1
@@ -17,7 +17,7 @@ metadata:
     app: gloo
     gloo: discovery
   name: discovery
-  namespace: kgateway
+  namespace: gateway-system
 ---
 # Source: gloo/templates/5-resource-rollout-job-service-account.yaml
 apiVersion: v1
@@ -27,7 +27,7 @@ metadata:
     app: gloo
     gloo: rbac
   name: gloo-resource-rollout
-  namespace: kgateway
+  namespace: gateway-system
 
 ---
 # Source: gloo/templates/8-gateway-proxy-service-account.yaml
@@ -38,7 +38,7 @@ metadata:
     app: gloo
     gloo: gateway-proxy
   name: gateway-proxy
-  namespace: kgateway
+  namespace: gateway-system
 
 ---
 # Source: gloo/templates/5-resource-configmap.yaml
@@ -46,7 +46,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: gloo-custom-resource-config
-  namespace: kgateway
+  namespace: gateway-system
   labels:
     app: gloo
     gloo: custom-resources
@@ -59,7 +59,7 @@ data:
     kind: Gateway
     metadata:
       name: gateway-proxy
-      namespace: kgateway
+      namespace: gateway-system
       labels:
         app: gloo
     spec:
@@ -76,7 +76,7 @@ data:
     kind: Gateway
     metadata:
       name: gateway-proxy-ssl
-      namespace: kgateway
+      namespace: gateway-system
       labels:
         app: gloo
     spec:
@@ -96,7 +96,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: gateway-proxy-envoy-config
-  namespace: kgateway
+  namespace: gateway-system
   labels:
     app: gloo
     gloo: gateway-proxy
@@ -121,7 +121,7 @@ data:
       metadata:
         # Specifies the proxy's in-memory xds cache key (see projects/gloo/pkg/xds/envoy.go)
         # This value needs to match discoveryNamespace (or "writeNamespace") in the settings template
-        role: kgateway~gateway-proxy
+        role: gateway-system~gateway-proxy
     static_resources:
       listeners:
         - name: prometheus_listener
@@ -163,17 +163,17 @@ data:
                         typed_config:
                           "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
       clusters:
-      - name: gloo.kgateway.svc.cluster.local:9977
+      - name: gloo.gateway-system.svc.cluster.local:9977
         alt_stat_name: xds_cluster
         connect_timeout: 5.000s
         load_assignment:
-          cluster_name: gloo.kgateway.svc.cluster.local:9977
+          cluster_name: gloo.gateway-system.svc.cluster.local:9977
           endpoints:
           - lb_endpoints:
             - endpoint:
                 address:
                   socket_address:
-                    address: gloo.kgateway.svc.cluster.local
+                    address: gloo.gateway-system.svc.cluster.local
                     port_value: 9977
         http2_protocol_options: {}
         upstream_connection_options:
@@ -191,7 +191,7 @@ data:
             - endpoint:
                 address:
                   socket_address:
-                    address: gloo.kgateway.svc.cluster.local
+                    address: gloo.gateway-system.svc.cluster.local
                     port_value: 9976
         upstream_connection_options:
           tcp_keepalive:
@@ -207,7 +207,7 @@ data:
             - endpoint:
                 address:
                   socket_address:
-                    address: gloo.kgateway.svc.cluster.local
+                    address: gloo.gateway-system.svc.cluster.local
                     port_value: 9979
         upstream_connection_options:
           tcp_keepalive:
@@ -234,7 +234,7 @@ data:
         api_type: GRPC
         rate_limit_settings: {}
         grpc_services:
-        - envoy_grpc: {cluster_name: gloo.kgateway.svc.cluster.local:9977}
+        - envoy_grpc: {cluster_name: gloo.gateway-system.svc.cluster.local:9977}
       cds_config:
         resource_api_version: V3
         ads: {}
@@ -454,10 +454,10 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: gloo
-  namespace: kgateway
+  namespace: gateway-system
 - kind: ServiceAccount
   name: discovery
-  namespace: kgateway
+  namespace: gateway-system
 roleRef:
   kind: ClusterRole
   name: kube-resource-watcher-support
@@ -475,10 +475,10 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: gloo
-  namespace: kgateway
+  namespace: gateway-system
 - kind: ServiceAccount
   name: discovery
-  namespace: kgateway
+  namespace: gateway-system
 roleRef:
   kind: ClusterRole
   name: kube-leader-election-support
@@ -496,7 +496,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: discovery
-  namespace: kgateway
+  namespace: gateway-system
 roleRef:
   kind: ClusterRole
   name: gloo-upstream-mutator-support
@@ -514,7 +514,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: gloo
-  namespace: kgateway
+  namespace: gateway-system
 roleRef:
   kind: ClusterRole
   name: gloo-resource-reader-support
@@ -532,13 +532,13 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: gloo
-  namespace: kgateway
+  namespace: gateway-system
 - kind: ServiceAccount
   name: gateway
-  namespace: kgateway
+  namespace: gateway-system
 - kind: ServiceAccount
   name: discovery
-  namespace: kgateway
+  namespace: gateway-system
 roleRef:
   kind: ClusterRole
   name: settings-user-support
@@ -556,10 +556,10 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: gateway
-  namespace: kgateway
+  namespace: gateway-system
 - kind: ServiceAccount
   name: gloo
-  namespace: kgateway
+  namespace: gateway-system
 roleRef:
   kind: ClusterRole
   name: gloo-resource-mutator-support
@@ -577,10 +577,10 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: gateway
-  namespace: kgateway
+  namespace: gateway-system
 - kind: ServiceAccount
   name: gloo # used to support gloo/gateway running in same pod
-  namespace: kgateway
+  namespace: gateway-system
 roleRef:
   kind: ClusterRole
   name: gateway-resource-reader-support
@@ -601,7 +601,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: gloo-resource-rollout
-  namespace: kgateway
+  namespace: gateway-system
 
 ---
 # Source: gloo/templates/5-resource-rollout-job-role.yaml
@@ -609,7 +609,7 @@ kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: gloo-resource-rollout
-  namespace: kgateway
+  namespace: gateway-system
   labels:
     app: gloo
     gloo: rbac
@@ -631,7 +631,7 @@ kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: gloo-resource-rollout
-  namespace: kgateway
+  namespace: gateway-system
   labels:
     app: gloo
     gloo: rbac
@@ -642,7 +642,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: gloo-resource-rollout
-  namespace: kgateway
+  namespace: gateway-system
 
 ---
 # Source: gloo/templates/2-gloo-service.yaml
@@ -653,7 +653,7 @@ metadata:
     app: gloo
     gloo: gloo
   name: gloo
-  namespace: kgateway
+  namespace: gateway-system
 spec:
   ports:
   - name: grpc-xds
@@ -688,7 +688,7 @@ metadata:
     gloo: gateway-proxy
     gateway-proxy-id: gateway-proxy
   name: gateway-proxy
-  namespace: kgateway
+  namespace: gateway-system
 spec:
   # port order matters due to this issue: https://github.com/solo-io/gloo/issues/2571
   ports:
@@ -713,7 +713,7 @@ metadata:
     app: gloo
     gloo: gloo
   name: gloo
-  namespace: kgateway
+  namespace: gateway-system
 spec:
   replicas: 1
   selector:
@@ -832,7 +832,7 @@ metadata:
     app: gloo
     gloo: discovery
   name: discovery
-  namespace: kgateway
+  namespace: gateway-system
 spec:
   replicas: 1
   selector:
@@ -898,7 +898,7 @@ metadata:
     gloo: gateway-proxy
     gateway-proxy-id: gateway-proxy
   name: gateway-proxy
-  namespace: kgateway
+  namespace: gateway-system
 spec:
   replicas: 1
   selector:
@@ -982,7 +982,7 @@ metadata:
     app: gloo
     gloo: resource-rollout
   name: gloo-resource-rollout
-  namespace: kgateway
+  namespace: gateway-system
   annotations:
     # Argo checks the status of resources in an app to determine its state. Since a job is cleaned up (deleted) after ttlSecondsAfterFinished,
     # the missing job causes the argo app to go out of sync.
@@ -1028,7 +1028,7 @@ spec:
           - -c
           - |
             # if validation webhook is enabled, wait for deployment rollout so validation service will be available
-            kubectl rollout status deployment -n kgateway gloo
+            kubectl rollout status deployment -n gateway-system gloo
 
             # apply extra Gloo Edge custom resources - these are created in enterprise
             if [ "$HAS_EXTRA_CUSTOM_RESOURCES" == "true" ]
@@ -1047,8 +1047,8 @@ spec:
             fi
 
             # remove the resource-policy annotations that were added temporarily by the gloo-resource-migration job during upgrade
-            kubectl annotate upstreams.gloo.solo.io -n kgateway -l app=gloo helm.sh/resource-policy- || exit $?
-            kubectl annotate gateways.gateway.solo.io -n kgateway -l app=gloo helm.sh/resource-policy- || exit $?
+            kubectl annotate upstreams.gloo.solo.io -n gateway-system -l app=gloo helm.sh/resource-policy- || exit $?
+            kubectl annotate gateways.gateway.solo.io -n gateway-system -l app=gloo helm.sh/resource-policy- || exit $?
 
 ---
 # Source: gloo/templates/18-settings.yaml
@@ -1059,7 +1059,7 @@ metadata:
     app: gloo
     gloo: settings
   name: default
-  namespace: kgateway
+  namespace: gateway-system
 spec:
   gloo:
     xdsBindAddr: "0.0.0.0:9977"
@@ -1079,7 +1079,7 @@ spec:
       appendXForwardedHost: true
       enableAutoMtls: false
       enableIntegration: false
-  discoveryNamespace: kgateway
+  discoveryNamespace: gateway-system
   kubernetesArtifactSource: {}
   kubernetesConfigSource: {}
   kubernetesSecretSource: {}
@@ -1114,7 +1114,7 @@ metadata:
     "helm.sh/hook-weight": "0" # must be created before cleanup job
     "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
   name: gloo-resource-cleanup
-  namespace: kgateway
+  namespace: gateway-system
 
 ---
 # Source: gloo/templates/5-resource-migration-job-service-account.yaml
@@ -1129,7 +1129,7 @@ metadata:
     "helm.sh/hook-weight": "0" # must be created before job
     "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
   name: gloo-resource-migration
-  namespace: kgateway
+  namespace: gateway-system
 
 ---
 # Source: gloo/templates/5-resource-rollout-cleanup-job.yaml
@@ -1140,7 +1140,7 @@ metadata:
     app: gloo
     gloo: rbac
   name: gloo-resource-rollout-cleanup
-  namespace: kgateway
+  namespace: gateway-system
   annotations:
     "helm.sh/hook": pre-upgrade
     "helm.sh/hook-weight":  "0"
@@ -1158,7 +1158,7 @@ metadata:
     "helm.sh/hook": pre-install,pre-upgrade
     "helm.sh/hook-weight": "5" # must be executed before cert-gen job
   name: certgen
-  namespace: kgateway
+  namespace: gateway-system
 
 ---
 # Source: gloo/templates/5-resource-cleanup-job-clusterrole.yaml
@@ -1240,7 +1240,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: gloo-resource-cleanup
-  namespace: kgateway
+  namespace: gateway-system
 
 ---
 # Source: gloo/templates/5-resource-migration-job-clusterrolebinding.yaml
@@ -1262,7 +1262,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: gloo-resource-migration
-  namespace: kgateway
+  namespace: gateway-system
 
 ---
 # Source: gloo/templates/6.5-gateway-certgen-job-vwc-update-clusterrolebinding.yaml
@@ -1280,7 +1280,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: certgen
-  namespace: kgateway
+  namespace: gateway-system
 roleRef:
   kind: ClusterRole
   name: gloo-gateway-vwc-update-support
@@ -1292,7 +1292,7 @@ kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: gloo-resource-cleanup
-  namespace: kgateway
+  namespace: gateway-system
   labels:
     app: gloo
     gloo: rbac
@@ -1311,7 +1311,7 @@ kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: gloo-resource-migration
-  namespace: kgateway
+  namespace: gateway-system
   labels:
     app: gloo
     gloo: rbac
@@ -1330,7 +1330,7 @@ kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: gloo-resource-rollout-cleanup
-  namespace: kgateway
+  namespace: gateway-system
   labels:
     app: gloo
     gloo: rbac
@@ -1348,7 +1348,7 @@ kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: gloo-gateway-secret-create-support
-  namespace: kgateway
+  namespace: gateway-system
   labels:
     app: gloo
     gloo: rbac
@@ -1367,7 +1367,7 @@ kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: gloo-resource-cleanup
-  namespace: kgateway
+  namespace: gateway-system
   labels:
     app: gloo
     gloo: rbac
@@ -1382,7 +1382,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: gloo-resource-cleanup
-  namespace: kgateway
+  namespace: gateway-system
 
 ---
 # Source: gloo/templates/5-resource-migration-job-rolebinding.yaml
@@ -1390,7 +1390,7 @@ kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: gloo-resource-migration
-  namespace: kgateway
+  namespace: gateway-system
   labels:
     app: gloo
     gloo: rbac
@@ -1405,7 +1405,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: gloo-resource-migration
-  namespace: kgateway
+  namespace: gateway-system
 
 ---
 # Source: gloo/templates/5-resource-rollout-cleanup-job.yaml
@@ -1413,7 +1413,7 @@ kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: gloo-resource-rollout-cleanup
-  namespace: kgateway
+  namespace: gateway-system
   labels:
     app: gloo
     gloo: rbac
@@ -1427,14 +1427,14 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: gloo-resource-rollout-cleanup
-  namespace: kgateway
+  namespace: gateway-system
 ---
 # Source: gloo/templates/6.5-gateway-certgen-job-secret-create-rolebinding.yaml
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: gloo-gateway-secret-create-support
-  namespace: kgateway
+  namespace: gateway-system
   labels:
     app: gloo
     gloo: rbac
@@ -1445,7 +1445,7 @@ metadata:
 subjects:
   - kind: ServiceAccount
     name: certgen
-    namespace: kgateway
+    namespace: gateway-system
 roleRef:
   kind: Role
   name: gloo-gateway-secret-create-support
@@ -1460,7 +1460,7 @@ metadata:
     app: gloo
     gloo: resource-cleanup
   name: gloo-resource-cleanup
-  namespace: kgateway
+  namespace: gateway-system
   annotations:
     "helm.sh/hook": pre-delete
     "helm.sh/hook-weight": "5" # run this job after the role/rolebinding is created
@@ -1486,17 +1486,17 @@ spec:
           - /bin/sh
           - -c
           - |
-            kubectl delete --ignore-not-found validatingwebhookconfigurations.admissionregistration.k8s.io gloo-gateway-validation-webhook-kgateway || exit $?
+            kubectl delete --ignore-not-found validatingwebhookconfigurations.admissionregistration.k8s.io gloo-gateway-validation-webhook-gateway-system || exit $?
 
             if ! kubectl get crd upstreams.gloo.solo.io; then
               echo "Could not find Upstream CRD. Gloo Edge CRDs may have already been deleted. Skipping cleanup of Gloo Edge resources."
               exit 0
             fi
 
-            kubectl delete --ignore-not-found upstreams.gloo.solo.io -n kgateway -l app=gloo || exit $?
+            kubectl delete --ignore-not-found upstreams.gloo.solo.io -n gateway-system -l app=gloo || exit $?
 
             # gateways can be in multiple namespaces
-            kubectl delete --ignore-not-found gateways.gateway.solo.io -n kgateway -l app=gloo || exit $?
+            kubectl delete --ignore-not-found gateways.gateway.solo.io -n gateway-system -l app=gloo || exit $?
 
 ---
 # Source: gloo/templates/5-resource-migration-job.yaml
@@ -1507,7 +1507,7 @@ metadata:
     app: gloo
     gloo: resource-migration
   name: gloo-resource-migration
-  namespace: kgateway
+  namespace: gateway-system
   annotations:
     "helm.sh/hook": pre-upgrade
     "helm.sh/hook-weight": "3" # run this job after the role/rolebinding is created, and before the validation webhook is upgraded
@@ -1541,12 +1541,12 @@ spec:
             # remove existing helm labels/annotations since the custom resources are no longer managed by helm.
             # also add resource-policy to tell helm not to delete the resource during upgrade.
             # select by label app=gloo, which is on all CRs from the gloo helm chart.
-            kubectl annotate --overwrite upstreams.gloo.solo.io -n kgateway -l app=gloo helm.sh/hook- helm.sh/hook-weight- meta.helm.sh/release-name- meta.helm.sh/release-namespace- helm.sh/resource-policy=keep || exit $?
-            kubectl label upstreams.gloo.solo.io -n kgateway -l app=gloo,app.kubernetes.io/managed-by=Helm app.kubernetes.io/managed-by- || exit $?
+            kubectl annotate --overwrite upstreams.gloo.solo.io -n gateway-system -l app=gloo helm.sh/hook- helm.sh/hook-weight- meta.helm.sh/release-name- meta.helm.sh/release-namespace- helm.sh/resource-policy=keep || exit $?
+            kubectl label upstreams.gloo.solo.io -n gateway-system -l app=gloo,app.kubernetes.io/managed-by=Helm app.kubernetes.io/managed-by- || exit $?
 
             # gateways can be in multiple namespaces
-            kubectl annotate --overwrite gateways.gateway.solo.io -n kgateway -l app=gloo helm.sh/hook- helm.sh/hook-weight- meta.helm.sh/release-name- meta.helm.sh/release-namespace- helm.sh/resource-policy=keep || exit $?
-            kubectl label gateways.gateway.solo.io -n kgateway -l app=gloo,app.kubernetes.io/managed-by=Helm app.kubernetes.io/managed-by- || exit $?
+            kubectl annotate --overwrite gateways.gateway.solo.io -n gateway-system -l app=gloo helm.sh/hook- helm.sh/hook-weight- meta.helm.sh/release-name- meta.helm.sh/release-namespace- helm.sh/resource-policy=keep || exit $?
+            kubectl label gateways.gateway.solo.io -n gateway-system -l app=gloo,app.kubernetes.io/managed-by=Helm app.kubernetes.io/managed-by- || exit $?
 
 ---
 # Source: gloo/templates/5-resource-rollout-check-job.yaml
@@ -1557,7 +1557,7 @@ metadata:
     app: gloo
     gloo: resource-rollout
   name: gloo-resource-rollout-check
-  namespace: kgateway
+  namespace: gateway-system
   annotations:
     "helm.sh/hook": post-install,post-upgrade
     "helm.sh/hook-weight": "5"
@@ -1603,18 +1603,18 @@ spec:
             if [ "$HAS_CUSTOM_RESOURCES" == "true" ]
             then
               # Wait for the resource rollout job to complete
-              kubectl -n kgateway get job gloo-resource-rollout &> /dev/null
+              kubectl -n gateway-system get job gloo-resource-rollout &> /dev/null
               if [ $? -eq 0 ]
               then
                 # Exit immediately if the rollout job failed
-                kubectl -n kgateway get job gloo-resource-rollout -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}' | grep -i "True" &> /dev/null
+                kubectl -n gateway-system get job gloo-resource-rollout -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}' | grep -i "True" &> /dev/null
                 if [ $? -eq 0 ]
                 then
                     echo "Rollout job failed. Not all resources were successfully created."
                     exit 1
                 fi
                 echo "Waiting for the resource rollout job to complete"
-                kubectl -n kgateway wait --for=condition=complete job gloo-resource-rollout --timeout=120s || exit 1
+                kubectl -n gateway-system wait --for=condition=complete job gloo-resource-rollout --timeout=120s || exit 1
 
               fi
 
@@ -1658,7 +1658,7 @@ metadata:
     app: gloo
     gloo: resource-rollout
   name: gloo-resource-rollout-cleanup
-  namespace: kgateway
+  namespace: gateway-system
   annotations:
     "helm.sh/hook": pre-upgrade
     "helm.sh/hook-weight": "5" # run this job after the role/rolebinding is created
@@ -1685,12 +1685,12 @@ spec:
           - -c
           - |
             # Check if the resource rollout job exists
-            kubectl -n kgateway get job gloo-resource-rollout &> /dev/null
+            kubectl -n gateway-system get job gloo-resource-rollout &> /dev/null
             if [ $? -eq 0 ]
             then
               echo "Cleaning up resource-rollout-job"
               # Clean it up so it doesn't cause issues with upgrades
-              kubectl -n kgateway delete job gloo-resource-rollout || exit $?
+              kubectl -n gateway-system delete job gloo-resource-rollout || exit $?
             fi
 
 ---
@@ -1703,7 +1703,7 @@ metadata:
     gloo: gateway-certgen
     gloo.solo.io/component: certgen
   name: gateway-certgen
-  namespace: kgateway
+  namespace: gateway-system
   annotations:
     "helm.sh/hook": pre-install,pre-upgrade
     "helm.sh/hook-weight": "10"
@@ -1733,14 +1733,14 @@ spec:
           args:
             - "--secret-name=gateway-validation-certs"
             - "--svc-name=gloo"
-            - "--validating-webhook-configuration-name=gloo-gateway-validation-webhook-kgateway"
+            - "--validating-webhook-configuration-name=gloo-gateway-validation-webhook-gateway-system"
             - "--force-rotation=true"
 ---
 # Source: gloo/templates/5-gateway-validation-webhook-configuration.yaml
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
-  name: gloo-gateway-validation-webhook-kgateway
+  name: gloo-gateway-validation-webhook-gateway-system
   labels:
     app: gloo
     gloo: gateway
@@ -1748,11 +1748,11 @@ metadata:
     "helm.sh/hook": pre-install, pre-upgrade
     "helm.sh/hook-weight": "5" # must be executed before cert-gen job
 webhooks:
-- name: gloo.kgateway.svc  # must be a domain with at least three segments separated by dots
+- name: gloo.gateway-system.svc  # must be a domain with at least three segments separated by dots
   clientConfig:
     service:
       name: gloo
-      namespace: kgateway
+      namespace: gateway-system
       path: "/validation"
     caBundle: "" # update manually or use certgen job or cert-manager's ca-injector
   rules:
@@ -1784,11 +1784,11 @@ webhooks:
   failurePolicy: Ignore
 
 
-- name: kube.kgateway.svc  # must be a domain with at least three segments separated by dots
+- name: kube.gateway-system.svc  # must be a domain with at least three segments separated by dots
   clientConfig:
     service:
       name: gloo
-      namespace: kgateway
+      namespace: gateway-system
       path: "/validation"
     caBundle: "" # update manually or use certgen job or cert-manager's ca-injector
   rules:

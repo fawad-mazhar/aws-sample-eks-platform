@@ -10,7 +10,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: nats-stream-setup
-  namespace: nats
+  namespace: messaging
 spec:
   backoffLimit: 10
   activeDeadlineSeconds: 600
@@ -38,7 +38,7 @@ spec:
             - name: HOME
               value: /tmp
             - name: NATS_URL
-              value: nats://demo:demo@nats.nats.svc.cluster.local:4222
+              value: nats://demo:demo@nats.messaging.svc.cluster.local:4222
           command:
             - /bin/sh
             - -c

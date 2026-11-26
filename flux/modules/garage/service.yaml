@@ -7,7 +7,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: garage-rpc
-  namespace: garage
+  namespace: object-storage
   labels:
     app: garage
 spec:
@@ -24,13 +24,13 @@ spec:
 ---
 # garage-s3: ClusterIP Service load-balancing the S3 API (3900) across the
 # three pods. This is the in-cluster S3 endpoint
-# (garage-s3.garage.svc.cluster.local:3900). The s3_web static-website feature
+# (garage-s3.object-storage.svc.cluster.local:3900). The s3_web static-website feature
 # is intentionally left disabled -- out of scope for this showcase.
 apiVersion: v1
 kind: Service
 metadata:
   name: garage-s3
-  namespace: garage
+  namespace: object-storage
   labels:
     app: garage
 spec:

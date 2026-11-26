@@ -4,7 +4,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: karpenter
-  namespace: kube-system
+  namespace: autoscaling-system
   labels:
     helm.sh/chart: karpenter-1.15.2
     app.kubernetes.io/name: karpenter
@@ -125,7 +125,7 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: karpenter
-    namespace: kube-system
+    namespace: autoscaling-system
 
 
 ---
@@ -169,7 +169,7 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: karpenter
-    namespace: kube-system
+    namespace: autoscaling-system
 
 
 ---
@@ -178,7 +178,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: karpenter
-  namespace: kube-system
+  namespace: autoscaling-system
   labels:
     helm.sh/chart: karpenter-1.15.2
     app.kubernetes.io/name: karpenter
@@ -209,7 +209,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: karpenter-dns
-  namespace: kube-system
+  namespace: autoscaling-system
   labels:
     helm.sh/chart: karpenter-1.15.2
     app.kubernetes.io/name: karpenter
@@ -230,7 +230,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: karpenter
-  namespace: kube-system
+  namespace: autoscaling-system
   labels:
     helm.sh/chart: karpenter-1.15.2
     app.kubernetes.io/name: karpenter
@@ -244,7 +244,7 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: karpenter
-    namespace: kube-system
+    namespace: autoscaling-system
 
 
 ---
@@ -253,7 +253,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: karpenter-dns
-  namespace: kube-system
+  namespace: autoscaling-system
   labels:
     helm.sh/chart: karpenter-1.15.2
     app.kubernetes.io/name: karpenter
@@ -267,4 +267,4 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: karpenter
-    namespace: kube-system
+    namespace: autoscaling-system

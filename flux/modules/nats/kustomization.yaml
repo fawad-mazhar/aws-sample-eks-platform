@@ -15,7 +15,7 @@
 # the Prometheus text format the prometheus.io/scrape annotation expects.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-namespace: nats
+namespace: messaging
 resources:
   - configmap.yaml
   - statefulset.yaml

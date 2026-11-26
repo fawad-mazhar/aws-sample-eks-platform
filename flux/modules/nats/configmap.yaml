@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: nats-config
-  namespace: nats
+  namespace: messaging
 data:
   nats.conf: |
     # Server name derived from pod name (required for JetStream clustering)
@@ -18,9 +18,9 @@ data:
 
       # Dynamic routes to the other pods in the StatefulSet
       routes: [
-        nats://nats-0.nats.nats.svc.cluster.local:6222
-        nats://nats-1.nats.nats.svc.cluster.local:6222
-        nats://nats-2.nats.nats.svc.cluster.local:6222
+        nats://nats-0.nats.messaging.svc.cluster.local:6222
+        nats://nats-1.nats.messaging.svc.cluster.local:6222
+        nats://nats-2.nats.messaging.svc.cluster.local:6222
       ]
     }
 

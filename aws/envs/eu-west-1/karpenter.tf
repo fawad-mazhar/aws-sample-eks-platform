@@ -3,11 +3,11 @@ module "karpenter" {
   version = "21.30.2"
 
   cluster_name = module.eks_cluster.cluster_name
-  namespace    = "kube-system"
+  namespace    = "autoscaling-system"
 
   # EKS Pod Identity (module default): the association binds the controller
-  # role to kube-system/karpenter, so the ServiceAccount needs no role-arn
-  # annotation and the manifests carry no account ID.
+  # role to autoscaling-system/karpenter, so the ServiceAccount needs no
+  # role-arn annotation and the manifests carry no account ID.
   create_pod_identity_association = true
   enable_inline_policy            = true
 

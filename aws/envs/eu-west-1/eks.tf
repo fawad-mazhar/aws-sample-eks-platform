@@ -75,24 +75,17 @@ module "eks_cluster" {
   }
 
   fargate_profiles = {
-    fargate = {
+    gateway-system = {
       selectors = [
         {
-          namespace = "fargate"
+          namespace = "gateway-system"
         }
       ]
     }
-    kgateway = {
+    apps-demo = {
       selectors = [
         {
-          namespace = "kgateway"
-        }
-      ]
-    }
-    sample-app = {
-      selectors = [
-        {
-          namespace = "sample-app"
+          namespace = "apps-demo"
           labels = {
             app = "fastapi-app"
           }

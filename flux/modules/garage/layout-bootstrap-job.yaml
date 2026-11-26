@@ -14,7 +14,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: garage-layout-bootstrap
-  namespace: garage
+  namespace: object-storage
 spec:
   backoffLimit: 10
   activeDeadlineSeconds: 600
@@ -112,6 +112,6 @@ spec:
                 --from-literal=AWS_ACCESS_KEY_ID="$KID" \
                 --from-literal=AWS_SECRET_ACCESS_KEY="$SKEY" \
                 --from-literal=BUCKET=demo-bucket \
-                --from-literal=ENDPOINT=http://garage-s3.garage.svc.cluster.local:3900 \
+                --from-literal=ENDPOINT=http://garage-s3.object-storage.svc.cluster.local:3900 \
                 --dry-run=client -o yaml | kubectl apply -f -
               echo "Done."

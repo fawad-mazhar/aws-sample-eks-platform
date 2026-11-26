@@ -4,7 +4,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: aws-load-balancer-controller
-  namespace: kube-system
+  namespace: gateway-system
   labels:
     app.kubernetes.io/managed-by: Helm
     helm.sh/chart: aws-load-balancer-controller-3.6.3
@@ -116,7 +116,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: aws-load-balancer-controller
-  namespace: kube-system
+  namespace: gateway-system
 
 ---
 # Source: aws-load-balancer-controller/templates/rbac.yaml
@@ -124,7 +124,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: aws-load-balancer-controller-leader-election-role
-  namespace: kube-system
+  namespace: gateway-system
   labels:
     app.kubernetes.io/managed-by: Helm
     helm.sh/chart: aws-load-balancer-controller-3.6.3
@@ -162,7 +162,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: aws-load-balancer-controller-leader-election-rolebinding
-  namespace: kube-system
+  namespace: gateway-system
   labels:
     app.kubernetes.io/managed-by: Helm
     helm.sh/chart: aws-load-balancer-controller-3.6.3
@@ -176,7 +176,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: aws-load-balancer-controller
-  namespace: kube-system
+  namespace: gateway-system
 
 ---
 # Source: aws-load-balancer-controller/templates/service.yaml
@@ -184,7 +184,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: aws-load-balancer-webhook-service
-  namespace: kube-system
+  namespace: gateway-system
   labels:
     app.kubernetes.io/managed-by: Helm
     helm.sh/chart: aws-load-balancer-controller-3.6.3
@@ -208,7 +208,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: aws-load-balancer-controller
-  namespace: kube-system
+  namespace: gateway-system
   labels:
     app.kubernetes.io/managed-by: Helm
     helm.sh/chart: aws-load-balancer-controller-3.6.3
@@ -314,7 +314,7 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
   annotations:
-    cert-manager.io/inject-ca-from: kube-system/aws-load-balancer-serving-cert
+    cert-manager.io/inject-ca-from: gateway-system/aws-load-balancer-serving-cert
   name: aws-load-balancer-webhook
   labels:
     app.kubernetes.io/managed-by: Helm
@@ -326,7 +326,7 @@ webhooks:
 - clientConfig:
     service:
       name: aws-load-balancer-webhook-service
-      namespace: kube-system
+      namespace: gateway-system
       path: /mutate-v1-pod
   failurePolicy: Ignore
   name: mpod.elbv2.k8s.aws
@@ -359,7 +359,7 @@ webhooks:
 - clientConfig:
     service:
       name: aws-load-balancer-webhook-service
-      namespace: kube-system
+      namespace: gateway-system
       path: /mutate-v1-pod-server-id
   failurePolicy: Fail
   name: quicid.elbv2.k8s.aws
@@ -392,7 +392,7 @@ webhooks:
 - clientConfig:
     service:
       name: aws-load-balancer-webhook-service
-      namespace: kube-system
+      namespace: gateway-system
       path: /mutate-v1-service
   failurePolicy: Fail
   name: mservice.elbv2.k8s.aws
@@ -417,7 +417,7 @@ webhooks:
 - clientConfig:
     service:
       name: aws-load-balancer-webhook-service
-      namespace: kube-system
+      namespace: gateway-system
       path: /mutate-alb-target-control-namespace-v1-pod
   failurePolicy: Fail
   name: alb-target-control.namespace.elbv2.k8s.aws
@@ -453,7 +453,7 @@ webhooks:
 
     service:
       name: aws-load-balancer-webhook-service
-      namespace: kube-system
+      namespace: gateway-system
       path: /mutate-alb-target-control-object-v1-pod
   failurePolicy: Fail
   name: alb-target-control.object.elbv2.k8s.aws
@@ -487,7 +487,7 @@ webhooks:
 
     service:
       name: aws-load-balancer-webhook-service
-      namespace: kube-system
+      namespace: gateway-system
       path: /mutate-elbv2-k8s-aws-v1beta1-targetgroupbinding
   failurePolicy: Fail
   name: mtargetgroupbinding.elbv2.k8s.aws
@@ -511,7 +511,7 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
   annotations:
-    cert-manager.io/inject-ca-from: kube-system/aws-load-balancer-serving-cert
+    cert-manager.io/inject-ca-from: gateway-system/aws-load-balancer-serving-cert
   name: aws-load-balancer-webhook
   labels:
     app.kubernetes.io/managed-by: Helm
@@ -523,7 +523,7 @@ webhooks:
 - clientConfig:
     service:
       name: aws-load-balancer-webhook-service
-      namespace: kube-system
+      namespace: gateway-system
       path: /validate-elbv2-k8s-aws-v1beta1-ingressclassparams
   failurePolicy: Fail
   name: vingressclassparams.elbv2.k8s.aws
@@ -549,7 +549,7 @@ webhooks:
 - clientConfig:
     service:
       name: aws-load-balancer-webhook-service
-      namespace: kube-system
+      namespace: gateway-system
       path: /validate-elbv2-k8s-aws-v1beta1-targetgroupbinding
   failurePolicy: Fail
   name: vtargetgroupbinding.elbv2.k8s.aws
@@ -569,7 +569,7 @@ webhooks:
 - clientConfig:
     service:
       name: aws-load-balancer-webhook-service
-      namespace: kube-system
+      namespace: gateway-system
       path: /validate-networking-v1-ingress
   failurePolicy:  Fail
   matchPolicy: Equivalent
@@ -595,7 +595,7 @@ apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: aws-load-balancer-root-cert
-  namespace: kube-system
+  namespace: gateway-system
   labels:
     app.kubernetes.io/managed-by: Helm
     helm.sh/chart: aws-load-balancer-controller-3.6.3
@@ -619,7 +619,7 @@ apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: aws-load-balancer-serving-cert
-  namespace: kube-system
+  namespace: gateway-system
   labels:
     app.kubernetes.io/managed-by: Helm
     helm.sh/chart: aws-load-balancer-controller-3.6.3
@@ -628,8 +628,8 @@ metadata:
     app.kubernetes.io/version: "v3.6.3"
 spec:
   dnsNames:
-  - aws-load-balancer-webhook-service.kube-system.svc
-  - aws-load-balancer-webhook-service.kube-system.svc.cluster.local
+  - aws-load-balancer-webhook-service.gateway-system.svc
+  - aws-load-balancer-webhook-service.gateway-system.svc.cluster.local
   issuerRef:
     kind: Issuer
     name: aws-load-balancer-root-issuer
@@ -645,7 +645,7 @@ apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
   name: aws-load-balancer-selfsigned-issuer
-  namespace: kube-system
+  namespace: gateway-system
   labels:
     app.kubernetes.io/managed-by: Helm
     helm.sh/chart: aws-load-balancer-controller-3.6.3
@@ -662,7 +662,7 @@ apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
   name: aws-load-balancer-root-issuer
-  namespace: kube-system
+  namespace: gateway-system
   labels:
     app.kubernetes.io/managed-by: Helm
     helm.sh/chart: aws-load-balancer-controller-3.6.3

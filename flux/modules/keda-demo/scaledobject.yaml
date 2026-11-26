@@ -14,7 +14,7 @@ apiVersion: keda.sh/v1alpha1
 kind: ScaledObject
 metadata:
   name: fastapi-deployment
-  namespace: sample-app
+  namespace: apps-demo
 spec:
   scaleTargetRef:
     name: fastapi-deployment

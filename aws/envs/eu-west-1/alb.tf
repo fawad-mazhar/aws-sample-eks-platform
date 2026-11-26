@@ -274,7 +274,7 @@ module "alb_controller_pod_identity" {
   env_prefix           = local.env_prefix
   role_name            = "aws-load-balancer-controller"
   cluster_name         = module.eks_cluster.cluster_name
-  namespace            = "kube-system"
+  namespace            = "gateway-system"
   service_account_name = "aws-load-balancer-controller"
   policy_json          = data.aws_iam_policy_document.alb_controller.json
 }

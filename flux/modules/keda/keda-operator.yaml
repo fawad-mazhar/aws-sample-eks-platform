@@ -13,7 +13,7 @@ metadata:
     app.kubernetes.io/version: 2.21.1
     app.kubernetes.io/instance: keda
   name: keda-operator
-  namespace: kube-system
+  namespace: autoscaling-system
 automountServiceAccountToken: true
 ---
 # Source: keda/templates/metrics-server/serviceaccount.yaml
@@ -30,7 +30,7 @@ metadata:
     app.kubernetes.io/version: 2.21.1
     app.kubernetes.io/instance: keda
   name: keda-metrics-server
-  namespace: kube-system
+  namespace: autoscaling-system
 automountServiceAccountToken: true
 ---
 # Source: keda/templates/webhooks/serviceaccount.yaml
@@ -47,7 +47,7 @@ metadata:
     app.kubernetes.io/version: 2.21.1
     app.kubernetes.io/instance: keda
   name: keda-webhook
-  namespace: kube-system
+  namespace: autoscaling-system
 automountServiceAccountToken: true
 ---
 # Source: keda/templates/manager/clusterrole.yaml
@@ -344,7 +344,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: keda-operator
-  namespace: kube-system
+  namespace: autoscaling-system
 
 ---
 # Source: keda/templates/manager/minimal-rbac.yaml
@@ -367,7 +367,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: keda-operator
-  namespace: kube-system
+  namespace: autoscaling-system
 
 ---
 # Source: keda/templates/metrics-server/clusterrolebinding.yaml
@@ -390,7 +390,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: keda-metrics-server
-  namespace: kube-system
+  namespace: autoscaling-system
 
 ---
 # Source: keda/templates/metrics-server/clusterrolebinding.yaml
@@ -435,7 +435,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: keda-webhook
-  namespace: kube-system
+  namespace: autoscaling-system
 
 ---
 # Source: keda/templates/manager/minimal-rbac.yaml
@@ -451,7 +451,7 @@ metadata:
     app.kubernetes.io/version: 2.21.1
     app.kubernetes.io/instance: keda
   name: keda-operator-certs
-  namespace: kube-system
+  namespace: autoscaling-system
 rules:
 - apiGroups:
   - coordination.k8s.io
@@ -495,7 +495,7 @@ metadata:
     app.kubernetes.io/version: 2.21.1
     app.kubernetes.io/instance: keda
   name: keda-operator-certs
-  namespace: kube-system
+  namespace: autoscaling-system
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -503,7 +503,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: keda-operator
-  namespace: kube-system
+  namespace: autoscaling-system
 
 ---
 # Source: keda/templates/metrics-server/clusterrolebinding.yaml
@@ -528,7 +528,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: keda-metrics-server
-  namespace: kube-system
+  namespace: autoscaling-system
 
 ---
 # Source: keda/templates/manager/service.yaml
@@ -544,7 +544,7 @@ metadata:
     app.kubernetes.io/version: 2.21.1
     app.kubernetes.io/instance: keda
   name: keda-operator
-  namespace: kube-system
+  namespace: autoscaling-system
 spec:
   ports:
   - name: metricsservice
@@ -568,7 +568,7 @@ metadata:
     app.kubernetes.io/version: 2.21.1
     app.kubernetes.io/instance: keda
   name: keda-operator-metrics-apiserver
-  namespace: kube-system
+  namespace: autoscaling-system
 spec:
   type: ClusterIP
   ports:
@@ -598,7 +598,7 @@ metadata:
     app.kubernetes.io/version: 2.21.1
     app.kubernetes.io/instance: keda
   name: keda-admission-webhooks
-  namespace: kube-system
+  namespace: autoscaling-system
 spec:
   ports:
   - name: https
@@ -615,7 +615,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: keda-operator
-  namespace: kube-system
+  namespace: autoscaling-system
   labels:
     app: keda-operator
     name: keda-operator
@@ -777,7 +777,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: keda-operator-metrics-apiserver
-  namespace: kube-system
+  namespace: autoscaling-system
   labels:
     app: keda-operator-metrics-apiserver
     app.kubernetes.io/name: keda-operator-metrics-apiserver
@@ -867,7 +867,7 @@ spec:
           - --logtostderr=true
           - --stderrthreshold=ERROR
           - --disable-compression=true
-          - --metrics-service-address=keda-operator.kube-system.svc.cluster.local:9666
+          - --metrics-service-address=keda-operator.autoscaling-system.svc.cluster.local:9666
           - --client-ca-file=/certs/ca.crt
           - --tls-cert-file=/certs/tls.crt
           - --tls-private-key-file=/certs/tls.key
@@ -910,7 +910,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: keda-admission-webhooks
-  namespace: kube-system
+  namespace: autoscaling-system
   labels:
     app: keda-admission-webhooks
     name: keda-admission-webhooks
@@ -1036,7 +1036,7 @@ metadata:
 spec:
   service:
     name: keda-operator-metrics-apiserver
-    namespace: kube-system
+    namespace: autoscaling-system
     port: 443
   group: external.metrics.k8s.io
   version: v1beta1
@@ -1063,7 +1063,7 @@ webhooks:
   clientConfig:
     service:
       name: keda-admission-webhooks
-      namespace: kube-system
+      namespace: autoscaling-system
       path: /validate-keda-sh-v1alpha1-scaledobject
   failurePolicy: Ignore
   matchPolicy: Equivalent
@@ -1087,7 +1087,7 @@ webhooks:
   clientConfig:
     service:
       name: keda-admission-webhooks
-      namespace: kube-system
+      namespace: autoscaling-system
       path: /validate-keda-sh-v1alpha1-scaledjob
   failurePolicy: Ignore
   matchPolicy: Equivalent
@@ -1111,7 +1111,7 @@ webhooks:
   clientConfig:
     service:
       name: keda-admission-webhooks
-      namespace: kube-system
+      namespace: autoscaling-system
       path: /validate-keda-sh-v1alpha1-triggerauthentication
   failurePolicy: Ignore
   matchPolicy: Equivalent
@@ -1135,7 +1135,7 @@ webhooks:
   clientConfig:
     service:
       name: keda-admission-webhooks
-      namespace: kube-system
+      namespace: autoscaling-system
       path: /validate-keda-sh-v1alpha1-clustertriggerauthentication
   failurePolicy: Ignore
   matchPolicy: Equivalent
@@ -1159,7 +1159,7 @@ webhooks:
   clientConfig:
     service:
       name: keda-admission-webhooks
-      namespace: kube-system
+      namespace: autoscaling-system
       path: /validate-eventing-keda-sh-v1alpha1-cloudeventsource
   failurePolicy: Ignore
   matchPolicy: Equivalent
@@ -1183,7 +1183,7 @@ webhooks:
   clientConfig:
     service:
       name: keda-admission-webhooks
-      namespace: kube-system
+      namespace: autoscaling-system
       path: /validate-eventing-keda-sh-v1alpha1-clustercloudeventsource
   failurePolicy: Ignore
   matchPolicy: Equivalent

@@ -62,6 +62,42 @@ wait for each dependency's readiness gate before creating its consumers.
 </details>
 
 <details>
+  <summary>Namespace ownership model</summary>
+
+  Namespaces describe ownership and lifecycle, while component and Kubernetes
+  resource names continue to identify the deployed technology.
+
+  | Namespace | Category | Contents |
+  | --- | --- | --- |
+  | `flux-system` | platform system | Flux controllers, sources and reconciliation configuration |
+  | `aws-observability` | platform integration | EKS Fargate logging configuration |
+  | `cert-manager` | platform system | cert-manager controllers and webhook |
+  | `cnpg-system` | platform system | CloudNativePG operator; application databases remain with their consumers |
+  | `gateway-system` | shared capability | AWS Load Balancer Controller, kgateway and ingress resources |
+  | `autoscaling-system` | shared capability | KEDA, Cluster Autoscaler and Karpenter |
+  | `observability` | shared capability | Prometheus and future monitoring components |
+  | `messaging` | shared data capability | NATS |
+  | `object-storage` | shared data capability | Garage |
+  | `apps-demo` | application domain | FastAPI and its CloudNativePG database |
+  | `default`, `kube-*` | reserved | Kubernetes/EKS infrastructure only; ordinary workloads do not run here |
+
+  The `nats`, `garage`, `kgateway`, `sample-app`, `keda` and controller Flux
+  Kustomizations retain those names because they identify modules and
+  technologies. Their resources are assigned to the capability namespaces
+  above. This keeps GitOps composition names stable without coupling them to
+  deployment ownership.
+
+  The generic Fargate profile is intentionally absent. Fargate profiles select
+  either the entire `gateway-system` namespace or only
+  `app=fastapi-app` pods in `apps-demo`; a namespace named after a compute
+  mechanism is not an application boundary.
+
+  `kube-system` is still used where Kubernetes requires it, including EBS/EFS
+  CSI service accounts, the cluster-information ConfigMap, cert-manager
+  leader-election RBAC and KEDA's binding to the built-in HPA service account.
+</details>
+
+<details>
   <summary>Terraform resource creation order</summary>
 
   Terraform determines the exact graph from references and `depends_on`. The
@@ -160,11 +196,10 @@ wait for each dependency's readiness gate before creating its consumers.
 
   - `platform` managed node group
   - `services` managed node group
-  - generic `fargate` profile
-  - `kgateway` Fargate profile
-  - `sample-app` Fargate profile
+  - `gateway-system` Fargate profile
+  - `apps-demo` Fargate profile
 
-  The sample-app profile selects only `app=fastapi-app` pods. CloudNativePG
+  The `apps-demo` profile selects only `app=fastapi-app` pods. CloudNativePG
   PostgreSQL instances do not match, so they remain on managed nodes where
   EBS-backed PVCs can be attached.
 
@@ -254,21 +289,21 @@ wait for each dependency's readiness gate before creating its consumers.
 
   ### 3. Apply workloads in controller order
 
-  | Order | Component | Must already be ready | Readiness gate |
-  | --- | --- | --- | --- |
-  | 1 | cert-manager | namespaces | controller, webhook and CA injector Available; webhook CA populated |
-  | 2 | Prometheus | `base`, `gp3` | Deployment Available and PVC Bound |
-  | 3 | NATS | `base`, `gp3` | three pods Ready and stream Job Complete |
-  | 4 | Garage | CRD, `base`, `gp3` | three pods Ready and layout Job Complete |
-  | 5 | KEDA | CRDs, `base` | operator, metrics API server and admission webhooks Available |
-  | 6 | Cluster Autoscaler | `cluster-information`, Pod Identity | Deployment Available |
-  | 7 | Karpenter controller | CRDs, `cluster-information`, Pod Identity | Deployment Available |
-  | 8 | Karpenter config | Karpenter controller | `NodePool` and `EC2NodeClass` Ready |
-  | 9 | ALB controller | ALB CRDs, cert-manager, Pod Identity | Deployment and webhook certificates Ready |
-  | 10 | CloudNativePG operator | CNPG CRDs and namespace | controller Deployment Available |
-  | 11 | kgateway | CRDs, ALB controller, CNPG operator | gloo, discovery and proxy Available; Gloo resources Accepted |
-  | 12 | sample app | CNPG operator, kgateway, `gp3` | PostgreSQL 3/3; FastAPI Deployment Available |
-  | 13 | KEDA demo, optional | KEDA and sample app | `ScaledObject` Ready |
+  | Order | Namespace | Component | Must already be ready | Readiness gate |
+  | --- | --- | --- | --- | --- |
+  | 1 | `cert-manager` | cert-manager | namespaces | controller, webhook and CA injector Available; webhook CA populated |
+  | 2 | `observability` | Prometheus | `base`, `gp3` | Deployment Available and PVC Bound |
+  | 3 | `messaging` | NATS | `base`, `gp3` | three pods Ready and stream Job Complete |
+  | 4 | `object-storage` | Garage | CRD, `base`, `gp3` | three pods Ready and layout Job Complete |
+  | 5 | `autoscaling-system` | KEDA | CRDs, `base` | operator, metrics API server and admission webhooks Available |
+  | 6 | `autoscaling-system` | Cluster Autoscaler | `cluster-information`, Pod Identity | Deployment Available |
+  | 7 | `autoscaling-system` | Karpenter controller | CRDs, `cluster-information`, Pod Identity | Deployment Available |
+  | 8 | cluster-scoped | Karpenter config | Karpenter controller | `NodePool` and `EC2NodeClass` Ready |
+  | 9 | `gateway-system` | ALB controller | ALB CRDs, cert-manager, Pod Identity | Deployment and webhook certificates Ready |
+  | 10 | `cnpg-system` | CloudNativePG operator | CNPG CRDs and namespace | controller Deployment Available |
+  | 11 | `gateway-system` | kgateway | CRDs, ALB controller, CNPG operator | gloo, discovery and proxy Available; Gloo resources Accepted |
+  | 12 | `apps-demo` | sample app | CNPG operator, kgateway, `gp3` | PostgreSQL 3/3; FastAPI Deployment Available |
+  | 13 | `apps-demo` | KEDA demo, optional | KEDA and sample app | `ScaledObject` Ready |
 
   cert-manager's leader-election RBAC belongs in `kube-system` while its
   controllers run in `cert-manager`; the environment Kustomization must not
@@ -360,11 +395,11 @@ wait for each dependency's readiness gate before creating its consumers.
   Wait for the Ingress address, then verify target health:
 
   ```bash
-  kubectl -n kgateway get ingress kgateway-alb
-  kubectl -n kgateway get targetgroupbinding
+  kubectl -n gateway-system get ingress kgateway-alb
+  kubectl -n gateway-system get targetgroupbinding
 
   TG_ARN="$(
-    kubectl -n kgateway get targetgroupbinding \
+    kubectl -n gateway-system get targetgroupbinding \
       -o jsonpath='{.items[0].spec.targetGroupARN}'
   )"
   aws elbv2 describe-target-health --target-group-arn "$TG_ARN"
@@ -421,13 +456,13 @@ wait for each dependency's readiness gate before creating its consumers.
 
   # Kubernetes and controller health
   kubectl get nodes
-  kubectl -n sample-app get cluster postgresql
+  kubectl -n apps-demo get cluster postgresql
   kubectl get nodepool,ec2nodeclass.karpenter.k8s.aws
 
   # Required one-shot workloads
-  kubectl -n nats wait --for=condition=complete \
+  kubectl -n messaging wait --for=condition=complete \
     job/nats-stream-setup --timeout=60s
-  kubectl -n garage wait --for=condition=complete \
+  kubectl -n object-storage wait --for=condition=complete \
     job/garage-layout-bootstrap --timeout=60s
 
   # Public application path
@@ -786,12 +821,12 @@ kubectl -n cert-manager rollout status deployment/cert-manager-cainjector
 
 # 6. Prometheus (scrapes prometheus.io/scrape-annotated pods, e.g. cluster-autoscaler)
 bin/render.sh flux/modules/prometheus | kubectl apply -f -
-kubectl -n kube-system rollout status deployment/prometheus
+kubectl -n observability rollout status deployment/prometheus
 
 # 7. NATS (3-node JetStream cluster) — deployed and healthy, but not wired
 # into the sample app's code; see Known Limitations.
 bin/render.sh flux/modules/nats | kubectl apply -f -
-kubectl -n nats rollout status statefulset/nats
+kubectl -n messaging rollout status statefulset/nats
 
 # 8. Garage (S3-compatible object storage) — a genuine, healthy 3-node
 # cluster with a demo bucket/key, reachable only in-cluster; not wired into
@@ -799,18 +834,18 @@ kubectl -n nats rollout status statefulset/nats
 # and creates the demo bucket/key after the pods are Ready. See Known
 # Limitations.
 bin/render.sh flux/modules/garage | kubectl apply -f -
-kubectl -n garage rollout status statefulset/garage
-kubectl -n garage wait --for=condition=complete job/garage-layout-bootstrap --timeout=600s
+kubectl -n object-storage rollout status statefulset/garage
+kubectl -n object-storage wait --for=condition=complete job/garage-layout-bootstrap --timeout=600s
 
 # 9. KEDA (event-driven autoscaling operator). The `keda-demo` ScaledObject
 # that uses it is intentionally NOT applied here — see step 15's note.
 bin/render.sh flux/modules/keda | kubectl apply --server-side --force-conflicts -f -
-kubectl -n kube-system rollout status deployment/keda-operator
+kubectl -n autoscaling-system rollout status deployment/keda-operator
 
 # 10. Cluster Autoscaler — scales the Terraform-managed node groups; this is
 # the autoscaler that actually serves normal workloads (sample-app, CNPG).
 bin/render.sh flux/modules/cluster-autoscaler | kubectl apply -f -
-kubectl -n kube-system rollout status deployment/cluster-autoscaler
+kubectl -n autoscaling-system rollout status deployment/cluster-autoscaler
 
 # 11. Karpenter — demo/teaching only in this repo. Its NodePool taints nodes
 # karpenter.sh/provisioned:NoSchedule and only the "inflate" example pod
@@ -818,14 +853,14 @@ kubectl -n kube-system rollout status deployment/cluster-autoscaler
 # opts in via nodeSelector. Scale it up to see Karpenter provision a node;
 # it does not participate in scaling the sample app.
 bin/render.sh flux/modules/karpenter | kubectl apply -f -
-kubectl -n kube-system rollout status deployment/karpenter
+kubectl -n autoscaling-system rollout status deployment/karpenter
 bin/render.sh flux/modules/karpenter-config | kubectl apply -f -
 
 # 12. ALB controller (depends on cert-manager for webhook TLS, and on the
 # cluster-information ConfigMap above for CLUSTER_NAME)
 bin/render.sh flux/modules/aws-load-balancer-controller |
   kubectl apply --server-side --force-conflicts -f -
-kubectl -n kube-system rollout status deployment/aws-load-balancer-controller
+kubectl -n gateway-system rollout status deployment/aws-load-balancer-controller
 
 # 13. CloudNativePG operator (wait for controller Ready — manages PostgreSQL Cluster CRs)
 bin/render.sh flux/modules/cloudnative-pg | kubectl apply --server-side --force-conflicts -f -
@@ -833,8 +868,8 @@ kubectl -n cnpg-system rollout status deployment/cnpg-controller-manager
 
 # 14. kgateway (API gateway + Ingress → creates ALB)
 bin/render.sh flux/envs/eu-west-1/kgateway | kubectl apply --server-side --force-conflicts -f -
-kubectl -n kgateway rollout status deployment/gloo
-kubectl -n kgateway rollout status deployment/gateway-proxy
+kubectl -n gateway-system rollout status deployment/gloo
+kubectl -n gateway-system rollout status deployment/gateway-proxy
 
 # 15. Sample app (FastAPI + CloudNativePG PostgreSQL cluster). Its Deployment
 # has no `replicas:` field -- once KEDA is installed (step 9) you may apply
@@ -843,9 +878,9 @@ kubectl -n kgateway rollout status deployment/gateway-proxy
 # because ScaledObject is a KEDA CRD kind with no ordering guarantee in a
 # single-shot `kubectl apply -k` (see flux/modules/keda-demo/kustomization.yaml).
 bin/render.sh flux/modules/sample-app | kubectl apply -f -
-kubectl -n sample-app rollout status deployment/fastapi-deployment
+kubectl -n apps-demo rollout status deployment/fastapi-deployment
 # Wait for PostgreSQL cluster to be ready (3 instances)
-kubectl -n sample-app wait --for=condition=Ready cluster/postgresql --timeout=300s
+kubectl -n apps-demo wait --for=condition=Ready cluster/postgresql --timeout=300s
 ```
 </details>
 
@@ -855,7 +890,7 @@ kubectl -n sample-app wait --for=condition=Ready cluster/postgresql --timeout=30
 Wait for the ALB controller to provision the load balancer from the Ingress resource:
 
 ```bash
-kubectl -n kgateway get ingress kgateway-alb
+kubectl -n gateway-system get ingress kgateway-alb
 # Wait until ADDRESS column shows an ALB DNS name
 ```
 
@@ -899,7 +934,7 @@ step is unnecessary.
 
 ```bash
 # Without a custom domain: plain HTTP on the ALB's DNS name
-curl "http://$(kubectl -n kgateway get ingress kgateway-alb -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')/"
+curl "http://$(kubectl -n gateway-system get ingress kgateway-alb -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')/"
 
 # With a custom domain
 curl "https://$(terraform -chdir=aws/envs/eu-west-1 output -raw app_hostname)/"
@@ -999,7 +1034,7 @@ kubectl delete -k flux/modules/flux-system/
 
 # 1. The Ingress. The ALB controller deletes the ALB, its target groups and
 # security groups, then releases the Ingress.
-kubectl -n kgateway delete ingress kgateway-alb --ignore-not-found --timeout=10m
+kubectl -n gateway-system delete ingress kgateway-alb --ignore-not-found --timeout=10m
 
 # 2. Karpenter's NodePool and EC2NodeClass. Karpenter terminates the nodes it
 # launched and deletes the instance profile it created for them.
@@ -1011,8 +1046,8 @@ bin/render.sh flux/modules/keda-demo | kubectl delete -f - --ignore-not-found --
 # 4. Delete the sample app and its CloudNativePG Cluster while the CNPG
 # operator is still running, then wait for the database PVCs to disappear.
 bin/render.sh flux/modules/sample-app | kubectl delete -f - --ignore-not-found --timeout=15m
-kubectl -n sample-app wait --for=delete cluster/postgresql --timeout=10m
-while [ -n "$(kubectl -n sample-app get pvc -o name)" ]; do sleep 10; done
+kubectl -n apps-demo wait --for=delete cluster/postgresql --timeout=10m
+while [ -n "$(kubectl -n apps-demo get pvc -o name)" ]; do sleep 10; done
 
 # 5. Everything else. The database CR and its claims are already gone, so it
 # is now safe to remove the CNPG operator, namespace and CRDs.
@@ -1081,7 +1116,7 @@ These caveats apply in the same spirit as the Karpenter note in Step 3
 - **Garage**: a genuine, healthy 3-node S3-compatible object store with a
   demo bucket (`demo-bucket`) and access key created by the
   `garage-layout-bootstrap` Job. The S3 API is reachable only in-cluster
-  (`garage-s3.garage.svc.cluster.local:3900`) and is not wired into the
+  (`garage-s3.object-storage.svc.cluster.local:3900`) and is not wired into the
   sample app's code -- same honesty pattern as NATS. Additional caveats:
   the LMDB metadata engine can corrupt after an unclean shutdown
   (mitigated, but not eliminated, by `metadata_auto_snapshot_interval = "6h"`
