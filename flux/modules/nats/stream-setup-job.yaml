@@ -28,12 +28,15 @@ spec:
         - name: nats-box
           image: ${ECR_REGISTRY}/${ENV_PREFIX}/nats-box:0.19.2
           imagePullPolicy: IfNotPresent
+          workingDir: /tmp
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
               drop:
                 - ALL
           env:
+            - name: HOME
+              value: /tmp
             - name: NATS_URL
               value: nats://demo:demo@nats.nats.svc.cluster.local:4222
           command:

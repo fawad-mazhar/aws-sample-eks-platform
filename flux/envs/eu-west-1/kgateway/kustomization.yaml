@@ -2,14 +2,11 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - ../../../modules/kgateway
-  # Gloo Edge classic control plane is deployed (see modules/kgateway/kgateway.yaml),
-  # not the Kubernetes Gateway API. gateway.solo.io/v1 Gateway + VirtualService below
-  # are what's actually live; there is no GatewayClass/Gateway (gateway.networking.k8s.io)
-  # in this environment.
-  - kgateway-gloo-gateway.yaml
+  # The chart rollout creates the gateway.solo.io/v1 Gateway resources for
+  # this Gloo Edge classic control plane.
   - sample-app-vs.yaml
   - kgateway-alb.yaml
 # Opt-in: hostname + HTTPS on the ALB. Requires TF_VAR_domain_name and
 # TF_VAR_acm_certificate_arn in .env (see custom-domain/kustomization.yaml).
-# components:
-#   - custom-domain
+components:
+  - custom-domain

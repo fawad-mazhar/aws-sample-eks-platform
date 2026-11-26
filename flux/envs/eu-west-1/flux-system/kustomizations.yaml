@@ -107,6 +107,7 @@ spec:
   wait: true
   dependsOn:
     - name: base
+    - name: storage
   sourceRef:
     kind: GitRepository
     name: aws-sample-eks-platform
@@ -123,6 +124,7 @@ spec:
   wait: true
   dependsOn:
     - name: base
+    - name: storage
   sourceRef:
     kind: GitRepository
     name: aws-sample-eks-platform
@@ -140,6 +142,7 @@ spec:
   dependsOn:
     - name: base
     - name: crds
+    - name: storage
   sourceRef:
     kind: GitRepository
     name: aws-sample-eks-platform
@@ -239,6 +242,7 @@ spec:
   wait: true
   dependsOn:
     - name: cert-manager # webhook TLS
+    - name: crds
   sourceRef:
     kind: GitRepository
     name: aws-sample-eks-platform
@@ -271,6 +275,7 @@ spec:
   wait: false # Gloo Edge Settings/VirtualService/Gateway: kstatus can't assess these CRD kinds
   dependsOn:
     - name: crds
+    - name: aws-load-balancer-controller
     - name: cloudnative-pg
   sourceRef:
     kind: GitRepository
@@ -289,6 +294,7 @@ spec:
   dependsOn:
     - name: cloudnative-pg
     - name: kgateway
+    - name: storage
   sourceRef:
     kind: GitRepository
     name: aws-sample-eks-platform

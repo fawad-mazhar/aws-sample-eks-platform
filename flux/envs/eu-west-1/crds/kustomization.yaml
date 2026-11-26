@@ -8,12 +8,13 @@
 # "no matches for kind" because the CRDs aren't Established yet when the CRs
 # are validated.
 #
-# Apply this kustomization first (`kubectl apply -k flux/envs/eu-west-1/crds/`)
-# to get all CRDs Established, then apply the full environment. Re-applying
-# these same CRDs as part of the full environment afterwards is a no-op.
+# Apply this kustomization first with server-side apply to establish the large
+# CRDs without exceeding the client-side last-applied annotation limit:
+# `kubectl apply --server-side --force-conflicts -k flux/envs/eu-west-1/crds/`
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
+  - ../../../modules/aws-load-balancer-controller/crds
   - ../../../modules/karpenter-crds
   - ../../../modules/cloudnative-pg/crds
   - ../../../modules/kgateway/crds

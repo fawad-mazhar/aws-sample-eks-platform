@@ -9,6 +9,7 @@ module "karpenter" {
   # role to kube-system/karpenter, so the ServiceAccount needs no role-arn
   # annotation and the manifests carry no account ID.
   create_pod_identity_association = true
+  enable_inline_policy            = true
 
   # Node role
   node_iam_role_use_name_prefix = false
@@ -32,9 +33,10 @@ resource "aws_ec2_tag" "karpenter_subnet" {
   value       = local.eks_cluster_name
 }
 
-# Tag node security group for Karpenter EC2NodeClass discovery
-resource "aws_ec2_tag" "karpenter_node_sg" {
-  resource_id = module.eks_cluster.node_security_group_id
-  key         = "karpenter.sh/discovery"
-  value       = local.eks_cluster_name
+removed {
+  from = aws_ec2_tag.karpenter_node_sg
+
+  lifecycle {
+    destroy = false
+  }
 }

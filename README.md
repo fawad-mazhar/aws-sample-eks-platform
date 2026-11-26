@@ -103,16 +103,22 @@ HTTPS:
 1. Create (or reuse) an ACM certificate in `eu-west-1` that covers the
    hostname, e.g. `books.example.com`.
 2. Set `TF_VAR_domain_name`, `TF_VAR_acm_certificate_arn` and optionally
-   `TF_VAR_app_subdomain` (default `books`) in `.env`.
+   `TF_VAR_app_subdomain` (default `books`) in `.env`. To reuse an existing
+   public hosted zone, also set `TF_VAR_route53_zone_id`; otherwise Terraform
+   creates a new hosted zone.
 3. Uncomment `- custom-domain` under `components:` in
    `flux/envs/eu-west-1/kgateway/kustomization.yaml`. This adds the hostname
    rule, the HTTPS listener and the HTTP→HTTPS redirect.
 
-Terraform then creates the hosted zone, and the alias record once the ALB
+Terraform uses that hosted zone and creates the alias record once the ALB
 exists (Step 5). `bin/cluster-config.sh` refuses to continue if the component
 is enabled but no domain is set.
 
 ### Virgin Deployment (First Time)
+
+For the resource-by-resource dependency map, readiness gates, failure
+boundaries and Flux DAG, see
+[RESOURCE_CREATION_ORDER.md](./RESOURCE_CREATION_ORDER.md).
 
 A fresh deployment runs Terraform, then the Kubernetes manifests. With a
 custom domain there is a second Terraform phase, because the Route53 ALB alias
@@ -131,7 +137,7 @@ terraform -chdir=aws/envs/eu-west-1 plan -out=tfplan
 terraform -chdir=aws/envs/eu-west-1 apply tfplan
 ```
 
-This creates about 150 resources: IAM roles (the ALB controller, Cluster Autoscaler and Karpenter use EKS Pod Identity; the CSI drivers use IRSA), EKS cluster (~15-20 min), node groups, Fargate profiles, ECR repos (builds+pushes all 20 images), EFS filesystem, add-ons, and the Route53 zone if a custom domain is configured. The `alb_deployed` variable defaults to `false`, so no Route53 ALB record is created yet.
+This creates about 150 resources: IAM roles (the ALB controller, Cluster Autoscaler and Karpenter use EKS Pod Identity; the CSI drivers use IRSA), EKS cluster (~15-20 min), node groups, Fargate profiles, ECR repos (builds+pushes all 20 images), EFS filesystem, add-ons, and either reuses the configured Route53 zone or creates one for a custom domain. The `alb_deployed` variable defaults to `false`, so no Route53 ALB record is created yet.
 
 **Step 2 — Configure kubectl**
 
@@ -157,8 +163,9 @@ Flux) for everything else.
 # A single `kubectl apply -k flux/envs/eu-west-1/` on a virgin cluster will
 # otherwise fail with "no matches for kind" for NodePool/EC2NodeClass,
 # CloudNativePG's Cluster, Gloo Edge's Settings/VirtualService/Gateway, and
-# KEDA's ScaledObject.
-kubectl apply -k flux/envs/eu-west-1/crds/
+# KEDA's ScaledObject. Server-side apply avoids the annotation size limit on
+# the large CloudNativePG and KEDA CRDs.
+kubectl apply --server-side --force-conflicts -k flux/envs/eu-west-1/crds/
 
 # 1. Base namespaces
 kubectl apply -k flux/base/
@@ -245,7 +252,7 @@ kubectl -n garage wait --for=condition=complete job/garage-layout-bootstrap --ti
 
 # 9. KEDA (event-driven autoscaling operator). The `keda-demo` ScaledObject
 # that uses it is intentionally NOT applied here — see step 15's note.
-bin/render.sh flux/modules/keda | kubectl apply -f -
+bin/render.sh flux/modules/keda | kubectl apply --server-side --force-conflicts -f -
 kubectl -n kube-system rollout status deployment/keda-operator
 
 # 10. Cluster Autoscaler — scales the Terraform-managed node groups; this is
@@ -264,15 +271,16 @@ bin/render.sh flux/modules/karpenter-config | kubectl apply -f -
 
 # 12. ALB controller (depends on cert-manager for webhook TLS, and on the
 # cluster-information ConfigMap above for CLUSTER_NAME)
-bin/render.sh flux/modules/aws-load-balancer-controller | kubectl apply -f -
+bin/render.sh flux/modules/aws-load-balancer-controller |
+  kubectl apply --server-side --force-conflicts -f -
 kubectl -n kube-system rollout status deployment/aws-load-balancer-controller
 
 # 13. CloudNativePG operator (wait for controller Ready — manages PostgreSQL Cluster CRs)
-bin/render.sh flux/modules/cloudnative-pg | kubectl apply -f -
+bin/render.sh flux/modules/cloudnative-pg | kubectl apply --server-side --force-conflicts -f -
 kubectl -n cnpg-system rollout status deployment/cnpg-controller-manager
 
 # 14. kgateway (API gateway + Ingress → creates ALB)
-bin/render.sh flux/envs/eu-west-1/kgateway | kubectl apply -f -
+bin/render.sh flux/envs/eu-west-1/kgateway | kubectl apply --server-side --force-conflicts -f -
 kubectl -n kgateway rollout status deployment/gloo
 kubectl -n kgateway rollout status deployment/gateway-proxy
 
@@ -315,13 +323,17 @@ This creates the `<app_subdomain>.<domain_name>` → ALB alias record
 
 **Step 6 — DNS configuration (custom domain only)**
 
-If the domain is registered with an external registrar, update the NS records at the registrar to point to the Route53 nameservers:
+If `TF_VAR_route53_zone_id` is unset, Terraform created a new hosted zone. If
+the domain is registered with an external registrar, update the NS records at
+the registrar to point to its Route53 nameservers:
 
 ```bash
 terraform -chdir=aws/envs/eu-west-1 output route53_nameservers
 ```
 
 Copy the 4 nameserver values to the domain registrar's NS records.
+When `TF_VAR_route53_zone_id` points to the existing delegated zone, this
+step is unnecessary.
 
 **Step 7 — Verify end-to-end**
 
@@ -380,9 +392,9 @@ If you're on the manual path (Option B): validate, then apply by hand.
 bin/check.sh
 
 # Apply the specific module that changed
-bin/render.sh flux/modules/<changed-module> | kubectl apply -f -
+bin/render.sh flux/modules/<changed-module> | kubectl apply --server-side --force-conflicts -f -
 # or apply the full environment (does not include flux-system, keda-demo)
-bin/render.sh flux/envs/eu-west-1 | kubectl apply -f -
+bin/render.sh flux/envs/eu-west-1 | kubectl apply --server-side --force-conflicts -f -
 ```
 
 **Application image updates**
@@ -426,14 +438,20 @@ bin/render.sh flux/modules/karpenter-config | kubectl delete -f - --ignore-not-f
 # 3. The keda-demo ScaledObject, if it was applied (KEDA holds a finalizer).
 bin/render.sh flux/modules/keda-demo | kubectl delete -f - --ignore-not-found --timeout=5m
 
-# 4. Everything else. Deleting the namespaces also deletes the NATS, Garage
-# and PostgreSQL volume claims.
+# 4. Delete the sample app and its CloudNativePG Cluster while the CNPG
+# operator is still running, then wait for the database PVCs to disappear.
+bin/render.sh flux/modules/sample-app | kubectl delete -f - --ignore-not-found --timeout=15m
+kubectl -n sample-app wait --for=delete cluster/postgresql --timeout=10m
+while [ -n "$(kubectl -n sample-app get pvc -o name)" ]; do sleep 10; done
+
+# 5. Everything else. The database CR and its claims are already gone, so it
+# is now safe to remove the CNPG operator, namespace and CRDs.
 bin/render.sh flux/envs/eu-west-1 | kubectl delete -f - --ignore-not-found --timeout=15m
 
-# 5. Wait until the EBS CSI driver has deleted every volume.
+# 6. Wait until the EBS CSI driver has deleted every volume.
 while [ -n "$(kubectl get pv -o name)" ]; do sleep 10; done
 
-# 6. Destroy. Leave alb_deployed at its default (false): the ALB is gone and
+# 7. Destroy. Leave alb_deployed at its default (false): the ALB is gone and
 # looking it up would fail. The Route53 record is destroyed either way.
 terraform -chdir=aws/envs/eu-west-1 plan -destroy -out=destroy.tfplan
 terraform -chdir=aws/envs/eu-west-1 apply destroy.tfplan
@@ -441,10 +459,12 @@ terraform -chdir=aws/envs/eu-west-1 apply destroy.tfplan
 
 Notes:
 
-- **Custom domain:** point the registrar back at the previous nameservers
-  before step 6. Terraform deletes the hosted zone only if it holds nothing
-  besides the NS and SOA records and the app alias record, so first delete
-  any records you added (an ACM validation record, for example).
+- **Custom domain:** when Terraform created the hosted zone
+  (`TF_VAR_route53_zone_id` unset), point the registrar back at the previous
+  nameservers before step 7 and delete any extra records. Terraform deletes
+  the zone only if it holds nothing besides NS/SOA and the app alias. With
+  `TF_VAR_route53_zone_id` set, Terraform deletes only the app alias and leaves
+  the existing zone and its other records untouched.
 - **ECR:** repositories are deleted with their images (`force_delete` in
   `aws/envs/eu-west-1/ecr.tf`). The next `terraform apply` rebuilds them.
 - **Fargate logs:** Fluent Bit creates the CloudWatch log group

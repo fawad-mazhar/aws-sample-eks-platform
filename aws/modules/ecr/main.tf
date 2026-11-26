@@ -57,9 +57,14 @@ resource "terraform_data" "docker_build_push" {
     interpreter = ["/bin/bash", "-c"]
     command     = <<-EOT
       set -euo pipefail
+      docker_config="$(mktemp -d)"
+      cleanup() {
+        rm -rf -- "$docker_config"
+      }
+      trap cleanup EXIT
       aws ecr get-login-password --region ${var.region} \
-        | docker login --username AWS --password-stdin ${aws_ecr_repository.this.repository_url}
-      docker buildx build \
+        | docker --config "$docker_config" login --username AWS --password-stdin ${split("/", aws_ecr_repository.this.repository_url)[0]}
+      DOCKER_CONFIG="$docker_config" docker buildx build \
         --platform ${join(",", var.platforms)} \
         --provenance=false \
         -t ${aws_ecr_repository.this.repository_url}:${var.image_tag} \

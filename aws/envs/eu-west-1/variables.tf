@@ -51,7 +51,18 @@ variable "alb_deployed" {
 variable "domain_name" {
   type        = string
   default     = null
-  description = "Optional. Route53 hosted zone to create, e.g. example.com. Set TF_VAR_domain_name in .env."
+  description = "Optional. Route53 hosted zone name, e.g. example.com. Set TF_VAR_domain_name in .env."
+}
+
+variable "route53_zone_id" {
+  type        = string
+  default     = null
+  description = "Optional. Existing public Route53 hosted zone ID for domain_name. Leave unset to create a new hosted zone."
+
+  validation {
+    condition     = var.route53_zone_id == null || can(regex("^Z[A-Z0-9]+$", var.route53_zone_id))
+    error_message = "route53_zone_id must be a Route53 hosted zone ID such as Z1234567890ABC."
+  }
 }
 
 variable "app_subdomain" {

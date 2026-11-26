@@ -101,3 +101,28 @@ module "eks_cluster" {
     }
   }
 }
+
+moved {
+  from = module.eks_cluster.module.eks.aws_eks_addon.this["vpc-cni"]
+  to   = module.eks_cluster.module.eks.aws_eks_addon.before_compute["vpc-cni"]
+}
+
+resource "aws_security_group_rule" "fargate_to_nodes" {
+  description              = "Fargate pods to managed-node pods"
+  type                     = "ingress"
+  from_port                = 0
+  to_port                  = 0
+  protocol                 = "-1"
+  security_group_id        = module.eks_cluster.node_security_group_id
+  source_security_group_id = module.eks_cluster.cluster_primary_security_group_id
+}
+
+resource "aws_security_group_rule" "nodes_to_fargate" {
+  description              = "Managed-node pods to Fargate pods"
+  type                     = "ingress"
+  from_port                = 0
+  to_port                  = 0
+  protocol                 = "-1"
+  security_group_id        = module.eks_cluster.cluster_primary_security_group_id
+  source_security_group_id = module.eks_cluster.node_security_group_id
+}

@@ -25,7 +25,7 @@ metadata:
     # Health check configuration — /healthz is a direct-response route that
     # matches regardless of Host header (the ALB health check sends none).
     alb.ingress.kubernetes.io/healthcheck-path: /healthz
-    alb.ingress.kubernetes.io/healthcheck-port: "80"
+    alb.ingress.kubernetes.io/healthcheck-port: traffic-port
     alb.ingress.kubernetes.io/success-codes: "200-399"
 
     # Load balancer settings

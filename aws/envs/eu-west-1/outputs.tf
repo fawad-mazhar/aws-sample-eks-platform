@@ -54,11 +54,11 @@ output "ecr_repository_urls" {
 }
 
 output "route53_zone_id" {
-  value = local.custom_domain ? aws_route53_zone.main[0].zone_id : null
+  value = local.custom_domain ? (var.route53_zone_id != null ? data.aws_route53_zone.existing[0].zone_id : aws_route53_zone.main[0].zone_id) : null
 }
 
 output "route53_nameservers" {
-  value = local.custom_domain ? aws_route53_zone.main[0].name_servers : null
+  value = local.custom_domain ? (var.route53_zone_id != null ? data.aws_route53_zone.existing[0].name_servers : aws_route53_zone.main[0].name_servers) : null
 }
 
 output "app_hostname" {

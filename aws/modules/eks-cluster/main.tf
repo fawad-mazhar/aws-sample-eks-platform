@@ -25,6 +25,10 @@ module "eks" {
   vpc_id     = var.vpc_id
   subnet_ids = var.private_subnet_ids
 
+  node_security_group_tags = {
+    "karpenter.sh/discovery" = var.cluster_name
+  }
+
   addons = merge(
     {
       coredns = {
@@ -39,6 +43,7 @@ module "eks" {
       }
       vpc-cni = {
         addon_version               = var.cni_addon_version
+        before_compute              = true
         resolve_conflicts_on_create = "OVERWRITE"
         resolve_conflicts_on_update = "PRESERVE"
       }

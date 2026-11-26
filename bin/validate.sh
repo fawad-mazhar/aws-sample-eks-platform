@@ -10,9 +10,10 @@ CONVERTER_URL="https://raw.githubusercontent.com/yannh/kubeconform/${CONVERTER_V
 VENV_PYTHON="build/venv/bin/python"
 # Example values for the ${VAR} placeholders, so the gate needs no AWS account.
 VARS_FILE="${VARS_FILE:-flux/envs/eu-west-1/cluster-vars.example.env}"
-# Generated below: the kgateway overlay with the opt-in custom-domain
-# component enabled, so both variants are validated.
+# Generated below: a kgateway overlay with the opt-in custom-domain component
+# enabled when the checked-in overlay has not already enabled it.
 CUSTOM_DOMAIN_OVERLAY="$OUT/overlays/kgateway-custom-domain"
+KGATEWAY_OVERLAY="flux/envs/eu-west-1/kgateway/kustomization.yaml"
 ENTRY_POINTS=("$@")
 
 if [ "${#ENTRY_POINTS[@]}" -eq 0 ]; then
@@ -22,8 +23,10 @@ if [ "${#ENTRY_POINTS[@]}" -eq 0 ]; then
 		flux/envs/eu-west-1/flux-system
 		flux/modules/flux-system
 		flux/modules/keda-demo
-		"$CUSTOM_DOMAIN_OVERLAY"
 	)
+	if ! grep -qE '^[[:space:]]*-[[:space:]]*custom-domain[[:space:]]*$' "$KGATEWAY_OVERLAY"; then
+		ENTRY_POINTS+=("$CUSTOM_DOMAIN_OVERLAY")
+	fi
 fi
 
 for command in kustomize kubeconform pluto curl; do
