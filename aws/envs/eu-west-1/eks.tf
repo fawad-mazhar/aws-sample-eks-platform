@@ -79,6 +79,9 @@ module "eks_cluster" {
       selectors = [
         {
           namespace = "gateway-system"
+          labels = {
+            "app.kubernetes.io/part-of" = "gateway-system"
+          }
         }
       ]
     }
@@ -93,11 +96,6 @@ module "eks_cluster" {
       ]
     }
   }
-}
-
-moved {
-  from = module.eks_cluster.module.eks.aws_eks_addon.this["vpc-cni"]
-  to   = module.eks_cluster.module.eks.aws_eks_addon.before_compute["vpc-cni"]
 }
 
 resource "aws_security_group_rule" "fargate_to_nodes" {

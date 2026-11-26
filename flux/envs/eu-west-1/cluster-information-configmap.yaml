@@ -1,15 +1,16 @@
 # Reference/schema only, with placeholder values. NOT applied directly (not
-# listed in ../kustomization.yaml). The real ConfigMap is generated from the
-# Terraform `cluster_information` output by `bin/cluster-config.sh apply`; see
-# README.md Step 3.
+# listed in ../kustomization.yaml). The real ConfigMap is generated in
+# kube-system, gateway-system and autoscaling-system from the Terraform
+# `cluster_information` output by `bin/cluster-config.sh apply`; see README.md
+# Step 3.
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: cluster-information
-  namespace: kube-system
+  namespace: gateway-system
 data:
   cluster-name: eu-dev-eks
   aws-region: eu-west-1
   aws-vpc-id: vpc-0123456789abcdef0
   cluster-endpoint: https://EXAMPLE.gr7.eu-west-1.eks.amazonaws.com
-  karpenter-queue: eu-dev-karpenter
+  karpenter-queue: eu-dev-karpenter-interruption-queue

@@ -87,14 +87,16 @@ wait for each dependency's readiness gate before creating its consumers.
   above. This keeps GitOps composition names stable without coupling them to
   deployment ownership.
 
-  The generic Fargate profile is intentionally absent. Fargate profiles select
-  either the entire `gateway-system` namespace or only
-  `app=fastapi-app` pods in `apps-demo`; a namespace named after a compute
-  mechanism is not an application boundary.
+  The generic Fargate profile is intentionally absent. The `gateway-system`
+  profile selects only kgateway pods labeled
+  `app.kubernetes.io/part-of=gateway-system`, while the `apps-demo` profile
+  selects only `app=fastapi-app` pods. The ALB controller is managed on EC2
+  nodes and is not selected by the gateway Fargate profile.
 
   `kube-system` is still used where Kubernetes requires it, including EBS/EFS
-  CSI service accounts, the cluster-information ConfigMap, cert-manager
-  leader-election RBAC and KEDA's binding to the built-in HPA service account.
+  CSI service accounts, a compatibility copy of `cluster-information`,
+  cert-manager leader-election RBAC and KEDA's binding to the built-in HPA
+  service account.
 </details>
 
 <details>
@@ -284,10 +286,12 @@ wait for each dependency's readiness gate before creating its consumers.
   `gp3` is the default StorageClass. The repository also includes the generic
   `efs-sc` StorageClass, but no EFS-backed PVC is created by this deployment.
 
-  `kube-system/cluster-information` must exist before Cluster Autoscaler,
-  Karpenter and the ALB controller. For Flux, install the controllers and then
-  run `bin/cluster-config.sh apply-flux` to create the strict-substitution
-  `flux-system/cluster-vars` ConfigMap.
+  copies of `cluster-information` must exist in `gateway-system` and
+  `autoscaling-system` before the ALB controller, Cluster Autoscaler and
+  Karpenter start. The compatibility copy remains in `kube-system`.
+  `bin/cluster-config.sh apply` creates all three copies. For Flux, install the
+  controllers and then run `bin/cluster-config.sh apply-flux` to create the
+  strict-substitution `flux-system/cluster-vars` ConfigMap.
 
   ### 3. Apply workloads in controller order
 
@@ -650,6 +654,8 @@ Platform-owned compute, IAM, storage and image names use
 Keep the tag stable after creation. Changing it changes names and therefore
 causes Terraform to replace name-immutable resources, including the EKS
 cluster, IAM roles and ECR repositories.
+Tags are limited to 7 characters because the Karpenter EventBridge rule-name
+prefix must remain within the provider limit.
 
 The environment tag is not the physical region. The AWS provider attaches
 `environment`, `region`, `project` and `managed-by` default tags to every
@@ -711,6 +717,10 @@ HTTPS:
 3. Uncomment `- custom-domain` under `components:` in
    `flux/envs/eu-west-1/kgateway/kustomization.yaml`. This adds the hostname
    rule, the HTTPS listener and the HTTP→HTTPS redirect.
+
+The component is intentionally absent from the default kustomization, so the
+HTTP-only ALB deployment remains usable without domain variables. Enabling the
+component requires committed overlay configuration for Flux to reconcile it.
 
 Terraform uses that hosted zone and creates the alias record once the ALB
 exists (Step 5). `bin/cluster-config.sh` refuses to continue if the component
@@ -783,11 +793,11 @@ kubectl apply -k flux/modules/aws-csi/
 # 3. Fargate logging
 kubectl apply -k flux/modules/aws-logging/
 
-# 4. cluster-information ConfigMap — generated from Terraform outputs, not
-# applied from the checked-in file (which holds placeholder values).
-# Must exist before Cluster Autoscaler, Karpenter, and the ALB controller,
-# which all read it via non-optional configMapKeyRef and will otherwise sit
-# in CreateContainerConfigError.
+# 4. cluster-information ConfigMaps — generated from Terraform outputs, not
+# applied from the checked-in file (which holds placeholder values). Copies
+# are required in gateway-system and autoscaling-system. kube-system keeps a
+# compatibility copy. A missing copy leaves one of these controllers in
+# CreateContainerConfigError.
 bin/cluster-config.sh apply
 ```
 </details>

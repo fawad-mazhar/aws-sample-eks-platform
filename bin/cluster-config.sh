@@ -3,10 +3,12 @@
 # state, so this is the one manual bridge between the two.
 #
 #   bin/cluster-config.sh vars [env]        print the Flux variables (KEY=VALUE)
-#   bin/cluster-config.sh apply [env]       create/update kube-system/cluster-information
+#   bin/cluster-config.sh apply [env]       create/update cluster-information copies
 #   bin/cluster-config.sh apply-flux [env]  create/update flux-system/cluster-vars
 #
-# cluster-information is read by the controllers at runtime (configMapKeyRef).
+# cluster-information is read by controllers in gateway-system and
+# autoscaling-system at runtime (configMapKeyRef). Copies are kept in
+# kube-system for backward compatibility.
 # cluster-vars is what Flux substitutes into ${VAR} placeholders
 # (postBuild.substituteFrom). env defaults to eu-west-1.
 set -euo pipefail
@@ -61,6 +63,16 @@ apply_configmap() {
 		--dry-run=client -o yaml | kubectl apply -f -
 }
 
+require_namespaces() {
+	local namespace
+	for namespace in "$@"; do
+		if ! kubectl get namespace "$namespace" > /dev/null 2>&1; then
+			echo "namespace '$namespace' not found; apply flux/base first" >&2
+			exit 1
+		fi
+	done
+}
+
 # Outputs are captured in assignments first: a failing $(...) used directly as
 # an argument would not stop the script under set -e.
 case "$command" in
@@ -69,7 +81,10 @@ case "$command" in
 		;;
 	apply)
 		data="$(output_lines cluster_information)"
-		apply_configmap cluster-information kube-system "$data"
+			require_namespaces kube-system gateway-system autoscaling-system
+			apply_configmap cluster-information kube-system "$data"
+			apply_configmap cluster-information gateway-system "$data"
+			apply_configmap cluster-information autoscaling-system "$data"
 		;;
 	apply-flux)
 		if ! kubectl get namespace flux-system > /dev/null 2>&1; then

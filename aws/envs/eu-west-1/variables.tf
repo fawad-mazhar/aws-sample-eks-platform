@@ -13,8 +13,8 @@ variable "environment" {
   description = "Short resource tag in <geography>-<stage> form, e.g. eu-dev, eu-prd, us-dev or us-stg. Resources use <environment>-<resource>."
 
   validation {
-    condition     = can(regex("^[a-z][a-z0-9]*-[a-z][a-z0-9-]*$", var.environment))
-    error_message = "environment must use lowercase <geography>-<stage> format, such as eu-dev, eu-prd, us-dev or us-stg."
+    condition     = length(var.environment) <= 7 && can(regex("^[a-z][a-z0-9]*-[a-z][a-z0-9-]*$", var.environment))
+    error_message = "environment must be at most 7 characters and use lowercase <geography>-<stage> format, such as eu-dev, eu-prd, us-dev or us-stg."
   }
 }
 

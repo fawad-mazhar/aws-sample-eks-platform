@@ -58,10 +58,27 @@ resource "terraform_data" "docker_build_push" {
     command     = <<-EOT
       set -euo pipefail
       docker_config="$(mktemp -d)"
+      real_docker_config="$${DOCKER_CONFIG:-$${HOME}/.docker}"
       cleanup() {
         rm -rf -- "$docker_config"
       }
       trap cleanup EXIT
+
+      mkdir -p "$docker_config"
+      if [ -d "$real_docker_config" ]; then
+        for item in cli-plugins contexts buildx; do
+          if [ -e "$real_docker_config/$item" ]; then
+            ln -s "$real_docker_config/$item" "$docker_config/$item"
+          fi
+        done
+        if [ -f "$real_docker_config/currentContext" ]; then
+          cp "$real_docker_config/currentContext" "$docker_config/currentContext"
+        fi
+        if [ -f "$real_docker_config/config.json" ]; then
+          cp "$real_docker_config/config.json" "$docker_config/config.json"
+        fi
+      fi
+
       aws ecr get-login-password --region ${var.region} \
         | docker --config "$docker_config" login --username AWS --password-stdin ${split("/", aws_ecr_repository.this.repository_url)[0]}
       DOCKER_CONFIG="$docker_config" docker buildx build \

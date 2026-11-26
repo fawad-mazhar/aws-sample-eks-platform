@@ -97,8 +97,8 @@ output "kubeconfig_command" {
   value = "aws eks update-kubeconfig --name ${module.eks_cluster.cluster_name} --region ${var.region}"
 }
 
-# Read by bin/cluster-config.sh: becomes the kube-system/cluster-information
-# ConfigMap that the controllers read at runtime.
+# Read by bin/cluster-config.sh: becomes cluster-information ConfigMaps in
+# kube-system, gateway-system and autoscaling-system for the controllers.
 output "cluster_information" {
   value = {
     "cluster-name"     = module.eks_cluster.cluster_name

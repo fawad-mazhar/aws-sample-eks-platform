@@ -132,3 +132,48 @@ patches:
         name: gloo-resource-rollout-cleanup
         namespace: gateway-system
       $patch: delete
+  - target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: gloo
+    patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: gloo
+      spec:
+        template:
+          metadata:
+            labels:
+              app.kubernetes.io/part-of: gateway-system
+  - target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: discovery
+    patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: discovery
+      spec:
+        template:
+          metadata:
+            labels:
+              app.kubernetes.io/part-of: gateway-system
+  - target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: gateway-proxy
+    patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: gateway-proxy
+      spec:
+        template:
+          metadata:
+            labels:
+              app.kubernetes.io/part-of: gateway-system

@@ -10,17 +10,14 @@ data "aws_route53_zone" "existing" {
       condition     = var.acm_certificate_arn != null
       error_message = "acm_certificate_arn is required when domain_name is set (the ALB HTTPS listener needs it)."
     }
-  }
-}
-
-check "existing_route53_zone" {
-  assert {
-    condition = try(
-      !data.aws_route53_zone.existing[0].private_zone &&
-      trimsuffix(data.aws_route53_zone.existing[0].name, ".") == trimsuffix(var.domain_name, "."),
-      true
-    )
-    error_message = "route53_zone_id must identify the public hosted zone for domain_name."
+    postcondition {
+      condition = try(
+        !self.private_zone &&
+        trimsuffix(self.name, ".") == trimsuffix(var.domain_name, "."),
+        true
+      )
+      error_message = "route53_zone_id must identify the public hosted zone for domain_name."
+    }
   }
 }
 

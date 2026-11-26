@@ -12,7 +12,8 @@
 # CloudNativePG's `Cluster` CR does report a standard Ready condition, so
 # `cloudnative-pg` and `sample-app` keep `wait: true`.
 #
-# The `cluster-information` (kube-system) and `cluster-vars` (flux-system)
+# The `cluster-information` (gateway-system, autoscaling-system, and
+# kube-system compatibility copy) and `cluster-vars` (flux-system)
 # ConfigMaps are intentionally NOT part of these Kustomizations: Flux has no
 # access to Terraform state, so bin/cluster-config.sh creates them from
 # Terraform outputs as a one-time manual step (see README.md) before this set.

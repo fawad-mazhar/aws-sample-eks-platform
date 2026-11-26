@@ -47,11 +47,3 @@ resource "aws_ec2_tag" "karpenter_subnet" {
   key         = "karpenter.sh/discovery"
   value       = local.eks_cluster_name
 }
-
-removed {
-  from = aws_ec2_tag.karpenter_node_sg
-
-  lifecycle {
-    destroy = false
-  }
-}
