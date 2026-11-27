@@ -285,11 +285,12 @@ wait for each dependency's readiness gate before creating its consumers.
   `gp3` is the default StorageClass. The repository also includes the generic
   `efs-sc` StorageClass, but no EFS-backed PVC is created by this deployment.
 
-  copies of `cluster-information` must exist in `gateway-system` and
+  Copies of `cluster-information` must exist in `gateway-system` and
   `autoscaling-system` before the ALB controller, Cluster Autoscaler and
-  Karpenter start. `bin/cluster-config.sh apply` creates both copies. For Flux, install the
-  controllers and then run `bin/cluster-config.sh apply-flux` to create the
-  strict-substitution `flux-system/cluster-vars` ConfigMap.
+  Karpenter start. `bin/cluster-config.sh apply` creates both copies.
+  For Flux, install the controllers and then run
+  `bin/cluster-config.sh apply-flux` to create the strict-substitution
+  `flux-system/cluster-vars` ConfigMap.
 
   ### 3. Apply workloads in controller order
 
@@ -794,8 +795,7 @@ kubectl apply -k flux/modules/aws-logging/
 # 4. cluster-information ConfigMaps — generated from Terraform outputs, not
 # applied from the checked-in file (which holds placeholder values). Copies
 # are required in gateway-system and autoscaling-system. A missing copy leaves
-# one of these controllers in
-# CreateContainerConfigError.
+# one of these controllers in CreateContainerConfigError.
 bin/cluster-config.sh apply
 ```
 </details>
