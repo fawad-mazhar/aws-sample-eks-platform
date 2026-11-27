@@ -564,10 +564,12 @@ wait for each dependency's readiness gate before creating its consumers.
   | --- | --- |
   | Environment inputs | `.env.example` and local `.env` |
   | Terraform root graph | `aws/envs/eu-dev/*.tf` |
+  | Terraform dependency graph | [`aws/envs/eu-dev/build-graph.md`](./aws/envs/eu-dev/build-graph.md) |
   | EKS add-on ordering | `aws/modules/eks-cluster/main.tf` |
   | ECR image build | `aws/modules/ecr/main.tf` |
   | CRD bootstrap | `flux/envs/eu-dev/crds/kustomization.yaml` |
   | Flux dependency DAG | `flux/envs/eu-dev/flux-system/kustomizations.yaml` |
+  | Flux build graph | [`flux/envs/eu-dev/build-graph.md`](./flux/envs/eu-dev/build-graph.md) |
   | Terraform-to-Kubernetes values | `bin/cluster-config.sh` |
   | Manual Flux-equivalent rendering | `bin/render.sh` |
   | Validation gate | `bin/check.sh` |
@@ -639,29 +641,24 @@ cp .env.example .env    # then edit it
 set -a; . ./.env; set +a
 ```
 
-`TF_VAR_environment` is the short deployment tag and defaults to `eu-dev`.
-Platform-owned compute, IAM, storage and image names use
-`<environment>-<resource>`:
+The environment folder and resource tag are pinned together:
+`aws/envs/eu-dev/terraform.tfvars` sets `environment = "eu-dev"`, and matching
+Flux files live under `flux/envs/eu-dev/`. Keep them paired; a `.env` file
+does not select a different environment root.
 
-| Environment tag | Physical region | Example EKS name | Example ECR repository |
-| --- | --- | --- | --- |
-| `eu-dev` | `eu-west-1` | `eu-dev-eks` | `eu-dev-sample-app` |
-| `eu-prd` | `eu-west-1` | `eu-prd-eks` | `eu-prd-sample-app` |
-| `us-dev` | a US region root such as `us-east-1` | `us-dev-eks` | `us-dev-sample-app` |
-| `us-stg` | a US region root such as `us-east-1` | `us-stg-eks` | `us-stg-sample-app` |
-
-Keep the tag stable after creation. Changing it changes names and therefore
-causes Terraform to replace name-immutable resources, including the EKS
-cluster, IAM roles and ECR repositories.
-Tags are limited to 7 characters because the Karpenter EventBridge rule-name
-prefix must remain within the provider limit.
+For a new environment, copy both `aws/envs/eu-dev` and `flux/envs/eu-dev`,
+rename both folders consistently, and set the copied Terraform `environment`
+and `region` values explicitly. Changing the tag in an existing environment
+renames resources and may replace name-immutable resources, including the EKS
+cluster, IAM roles and ECR repositories. Environment tags are limited to 7
+characters because the Karpenter EventBridge rule-name prefix must remain
+within the provider limit.
 
 The environment tag is not the physical region. The AWS provider attaches
 `environment`, `region`, `project` and `managed-by` default tags to every
-taggable resource. Resource-specific `Name` tags use the same
-`<environment>-<resource>` value where a prefixable platform name exists;
-domain-controlled names, such as a Route53 zone, retain their required DNS
-value.
+taggable resource. Resource-specific `Name` tags use
+`<environment>-<resource>` where a platform name exists; domain-controlled
+names, such as a Route53 zone, retain their required DNS value.
 
 Terraform reads its inputs from the `TF_VAR_*` variables. The Kubernetes
 manifests contain `${VAR}` placeholders (ECR registry, environment tag,

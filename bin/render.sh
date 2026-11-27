@@ -4,7 +4,7 @@
 #
 #   bin/render.sh flux/modules/sample-app | kubectl apply -f -
 #
-# # Variables come from VARS_FILE (KEY=VALUE lines) when set, otherwise from the
+# Variables come from VARS_FILE (KEY=VALUE lines) when set, otherwise from the
 # Terraform outputs of ENVIRONMENT (default eu-dev) via
 # `bin/cluster-config.sh vars`.
 set -euo pipefail

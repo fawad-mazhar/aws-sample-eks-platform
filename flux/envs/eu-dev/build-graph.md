@@ -1,7 +1,7 @@
 # Dependency Sequence
 
-Flux reconciles resources committed
-and pushed to `main`; local or unpushed changes are not source-of-truth changes.
+Flux reconciles resources committed and pushed to `main`; local or unpushed
+changes are not source-of-truth changes.
 
 ```text
 Terraform infrastructure + Ready Kubernetes nodes
@@ -12,25 +12,31 @@ Server-side CRD bootstrap
         v
 Base namespaces
         |
-        +---------------------------+
-        v                           v
-Storage + logging                 cert-manager
-        |                           |
-        v                           v
-Cluster ConfigMaps + Flux controllers
+        v
+Storage, logging and cluster ConfigMaps
         |
         v
-GitRepository(main) + Flux DAG
+Flux controllers
+  - source-controller
+  - kustomize-controller
+        |
+        v
+GitRepository(main)
+        |
+        v
+Flux Kustomization DAG
         |
         +-----------+------------+-------------+----------------+
         v           v            v             v                v
    Prometheus     NATS        Garage         KEDA          Cluster
-                                  |            |           Autoscaler
-                                  v            v
-                              workload    keda-demo
+                                                   Autoscaler
+
+Garage is independent storage data-plane work; it does not create the
+sample application or a dependency edge to sample-app.
 
 crds -> Karpenter -> karpenter-config
 
+base -> cert-manager
 crds + cert-manager -> ALB controller
 crds -> CloudNativePG
 crds + ALB controller + CloudNativePG -> kgateway
