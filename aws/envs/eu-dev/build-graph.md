@@ -44,6 +44,8 @@ Independent parallel work:
   - Route53 zone/discovery
 ```
 
+One valid order; Terraform creates independent steps in parallel.
+
 ## Terraform Phase 1
 
 Discover and validate the VPC, subnets and account. Create IAM roles, then the

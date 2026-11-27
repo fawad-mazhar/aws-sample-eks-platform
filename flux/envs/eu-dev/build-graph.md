@@ -30,8 +30,8 @@ GitRepository(main)
         v
 Flux Kustomization DAG
         |
-        +-----------+------------+-------------+----------------+
-        v           v            v             v
+        +----------+----------+----------+
+        v          v          v          v
    Prometheus     NATS        Garage         KEDA
 
 Cluster Autoscaler
