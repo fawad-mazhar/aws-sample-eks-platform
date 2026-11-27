@@ -98,7 +98,7 @@ output "kubeconfig_command" {
 }
 
 # Read by bin/cluster-config.sh: becomes cluster-information ConfigMaps in
-# kube-system, gateway-system and autoscaling-system for the controllers.
+# gateway-system and autoscaling-system for the controllers.
 output "cluster_information" {
   value = {
     "cluster-name"     = module.eks_cluster.cluster_name

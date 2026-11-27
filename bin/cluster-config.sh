@@ -7,8 +7,7 @@
 #   bin/cluster-config.sh apply-flux [env]  create/update flux-system/cluster-vars
 #
 # cluster-information is read by controllers in gateway-system and
-# autoscaling-system at runtime (configMapKeyRef). Copies are kept in
-# kube-system for backward compatibility.
+# autoscaling-system at runtime (configMapKeyRef).
 # cluster-vars is what Flux substitutes into ${VAR} placeholders
 # (postBuild.substituteFrom). env defaults to eu-west-1.
 set -euo pipefail
@@ -81,10 +80,9 @@ case "$command" in
 		;;
 	apply)
 		data="$(output_lines cluster_information)"
-			require_namespaces kube-system gateway-system autoscaling-system
-			apply_configmap cluster-information kube-system "$data"
-			apply_configmap cluster-information gateway-system "$data"
-			apply_configmap cluster-information autoscaling-system "$data"
+		require_namespaces gateway-system autoscaling-system
+		apply_configmap cluster-information gateway-system "$data"
+		apply_configmap cluster-information autoscaling-system "$data"
 		;;
 	apply-flux)
 		if ! kubectl get namespace flux-system > /dev/null 2>&1; then

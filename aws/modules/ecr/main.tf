@@ -71,11 +71,9 @@ resource "terraform_data" "docker_build_push" {
             ln -s "$real_docker_config/$item" "$docker_config/$item"
           fi
         done
-        if [ -f "$real_docker_config/currentContext" ]; then
-          cp "$real_docker_config/currentContext" "$docker_config/currentContext"
-        fi
         if [ -f "$real_docker_config/config.json" ]; then
-          cp "$real_docker_config/config.json" "$docker_config/config.json"
+          python3 -c 'import json, sys; c=json.load(open(sys.argv[1])); [c.pop(k, None) for k in ("auths", "credsStore", "credHelpers")]; json.dump(c, open(sys.argv[2], "w"))' \
+            "$real_docker_config/config.json" "$docker_config/config.json"
         fi
       fi
 

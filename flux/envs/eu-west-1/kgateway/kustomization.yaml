@@ -6,3 +6,6 @@ resources:
   # this Gloo Edge classic control plane.
   - sample-app-vs.yaml
   - kgateway-alb.yaml
+# Opt-in custom domain:
+# components:
+#   - custom-domain

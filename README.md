@@ -94,9 +94,8 @@ wait for each dependency's readiness gate before creating its consumers.
   nodes and is not selected by the gateway Fargate profile.
 
   `kube-system` is still used where Kubernetes requires it, including EBS/EFS
-  CSI service accounts, a compatibility copy of `cluster-information`,
-  cert-manager leader-election RBAC and KEDA's binding to the built-in HPA
-  service account.
+  CSI service accounts, cert-manager leader-election RBAC and KEDA's binding
+  to the built-in HPA service account.
 </details>
 
 <details>
@@ -288,8 +287,7 @@ wait for each dependency's readiness gate before creating its consumers.
 
   copies of `cluster-information` must exist in `gateway-system` and
   `autoscaling-system` before the ALB controller, Cluster Autoscaler and
-  Karpenter start. The compatibility copy remains in `kube-system`.
-  `bin/cluster-config.sh apply` creates all three copies. For Flux, install the
+  Karpenter start. `bin/cluster-config.sh apply` creates both copies. For Flux, install the
   controllers and then run `bin/cluster-config.sh apply-flux` to create the
   strict-substitution `flux-system/cluster-vars` ConfigMap.
 
@@ -795,8 +793,8 @@ kubectl apply -k flux/modules/aws-logging/
 
 # 4. cluster-information ConfigMaps — generated from Terraform outputs, not
 # applied from the checked-in file (which holds placeholder values). Copies
-# are required in gateway-system and autoscaling-system. kube-system keeps a
-# compatibility copy. A missing copy leaves one of these controllers in
+# are required in gateway-system and autoscaling-system. A missing copy leaves
+# one of these controllers in
 # CreateContainerConfigError.
 bin/cluster-config.sh apply
 ```
