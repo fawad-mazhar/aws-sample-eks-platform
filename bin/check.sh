@@ -5,7 +5,7 @@ cd "$(git rev-parse --show-toplevel)"
 # shellcheck source=bin/load-env.sh
 . bin/load-env.sh
 
-ENVIRONMENT="${1:-eu-west-1}"
+ENVIRONMENT="${1:-eu-dev}"
 REGION="${AWS_REGION:-eu-west-1}"
 
 bin/tf-validate.sh "$ENVIRONMENT"

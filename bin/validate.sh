@@ -9,18 +9,18 @@ CONVERTER_VERSION="v0.8.0"
 CONVERTER_URL="https://raw.githubusercontent.com/yannh/kubeconform/${CONVERTER_VERSION}/scripts/openapi2jsonschema.py"
 VENV_PYTHON="build/venv/bin/python"
 # Example values for the ${VAR} placeholders, so the gate needs no AWS account.
-VARS_FILE="${VARS_FILE:-flux/envs/eu-west-1/cluster-vars.example.env}"
+VARS_FILE="${VARS_FILE:-flux/envs/eu-dev/cluster-vars.example.env}"
 # Generated below: a kgateway overlay with the opt-in custom-domain component
 # enabled when the checked-in overlay has not already enabled it.
 CUSTOM_DOMAIN_OVERLAY="$OUT/overlays/kgateway-custom-domain"
-KGATEWAY_OVERLAY="flux/envs/eu-west-1/kgateway/kustomization.yaml"
+KGATEWAY_OVERLAY="flux/envs/eu-dev/kgateway/kustomization.yaml"
 ENTRY_POINTS=("$@")
 
 if [ "${#ENTRY_POINTS[@]}" -eq 0 ]; then
 	ENTRY_POINTS=(
-		flux/envs/eu-west-1/crds
-		flux/envs/eu-west-1
-		flux/envs/eu-west-1/flux-system
+		flux/envs/eu-dev/crds
+		flux/envs/eu-dev
+		flux/envs/eu-dev/flux-system
 		flux/modules/flux-system
 		flux/modules/keda-demo
 	)
@@ -61,9 +61,9 @@ printf '%s\n' \
 	'apiVersion: kustomize.config.k8s.io/v1beta1' \
 	'kind: Kustomization' \
 	'resources:' \
-	'  - ../../../../flux/envs/eu-west-1/kgateway' \
+	'  - ../../../../flux/envs/eu-dev/kgateway' \
 	'components:' \
-	'  - ../../../../flux/envs/eu-west-1/kgateway/custom-domain' \
+	'  - ../../../../flux/envs/eu-dev/kgateway/custom-domain' \
 	> "$CUSTOM_DOMAIN_OVERLAY/kustomization.yaml"
 
 for entry_point in "${ENTRY_POINTS[@]}"; do

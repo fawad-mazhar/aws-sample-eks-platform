@@ -262,7 +262,7 @@ wait for each dependency's readiness gate before creating its consumers.
 
   ```bash
   kubectl apply --server-side --force-conflicts \
-    -k flux/envs/eu-west-1/crds/
+    -k flux/envs/eu-dev/crds/
   kubectl wait --for=condition=Established --timeout=300s \
     $(kubectl get crd -o name)
   ```
@@ -343,7 +343,7 @@ wait for each dependency's readiness gate before creating its consumers.
   1. install `flux/modules/flux-system/`
   2. wait for source-controller and kustomize-controller
   3. run `bin/cluster-config.sh apply-flux`
-  4. apply `flux/envs/eu-west-1/flux-system/`
+  4. apply `flux/envs/eu-dev/flux-system/`
 
   Only committed files reachable from `main` are reconciled.
 
@@ -416,10 +416,10 @@ wait for each dependency's readiness gate before creating its consumers.
   Once the ALB is healthy, run the second Terraform phase:
 
   ```bash
-  terraform -chdir=aws/envs/eu-west-1 plan \
+  terraform -chdir=aws/envs/eu-dev plan \
     -var="alb_deployed=true" \
     -out=tfplan
-  terraform -chdir=aws/envs/eu-west-1 apply tfplan
+  terraform -chdir=aws/envs/eu-dev apply tfplan
   ```
 
   Terraform creates one alias `A` record:
@@ -439,7 +439,7 @@ wait for each dependency's readiness gate before creating its consumers.
   creates a new zone and the registrar must use its reported nameservers:
 
   ```bash
-  terraform -chdir=aws/envs/eu-west-1 output route53_nameservers
+  terraform -chdir=aws/envs/eu-dev output route53_nameservers
   ```
 
   For public DNS troubleshooting, query the selected Route53 zone directly
@@ -455,7 +455,7 @@ wait for each dependency's readiness gate before creating its consumers.
 
   ```bash
   # Infrastructure has no drift
-  terraform -chdir=aws/envs/eu-west-1 plan \
+  terraform -chdir=aws/envs/eu-dev plan \
     -var="alb_deployed=true" \
     -detailed-exitcode
 
@@ -471,7 +471,7 @@ wait for each dependency's readiness gate before creating its consumers.
     job/garage-layout-bootstrap --timeout=60s
 
   # Public application path
-  curl "https://$(terraform -chdir=aws/envs/eu-west-1 \
+  curl "https://$(terraform -chdir=aws/envs/eu-dev \
     output -raw app_hostname)/"
   ```
 
@@ -563,11 +563,11 @@ wait for each dependency's readiness gate before creating its consumers.
   | Concern | Source |
   | --- | --- |
   | Environment inputs | `.env.example` and local `.env` |
-  | Terraform root graph | `aws/envs/eu-west-1/*.tf` |
+  | Terraform root graph | `aws/envs/eu-dev/*.tf` |
   | EKS add-on ordering | `aws/modules/eks-cluster/main.tf` |
   | ECR image build | `aws/modules/ecr/main.tf` |
-  | CRD bootstrap | `flux/envs/eu-west-1/crds/kustomization.yaml` |
-  | Flux dependency DAG | `flux/envs/eu-west-1/flux-system/kustomizations.yaml` |
+  | CRD bootstrap | `flux/envs/eu-dev/crds/kustomization.yaml` |
+  | Flux dependency DAG | `flux/envs/eu-dev/flux-system/kustomizations.yaml` |
   | Terraform-to-Kubernetes values | `bin/cluster-config.sh` |
   | Manual Flux-equivalent rendering | `bin/render.sh` |
   | Validation gate | `bin/check.sh` |
@@ -668,7 +668,7 @@ manifests contain `${VAR}` placeholders (ECR registry, environment tag,
 cluster name, optional hostname and certificate). Flux fills them in from the
 `flux-system/cluster-vars` ConfigMap, which `bin/cluster-config.sh` generates
 from Terraform outputs. Without Flux, `bin/render.sh` does the same locally.
-`flux/envs/eu-west-1/cluster-vars.example.env` lists the variables.
+`flux/envs/eu-dev/cluster-vars.example.env` lists the variables.
 </details>
 
 #### Network
@@ -714,7 +714,7 @@ HTTPS:
    public hosted zone, also set `TF_VAR_route53_zone_id`; otherwise Terraform
    creates a new hosted zone.
 3. Uncomment `- custom-domain` under `components:` in
-   `flux/envs/eu-west-1/kgateway/kustomization.yaml`. This adds the hostname
+   `flux/envs/eu-dev/kgateway/kustomization.yaml`. This adds the hostname
    rule, the HTTPS listener and the HTTP→HTTPS redirect.
 
 The component is intentionally absent from the default kustomization, so the
@@ -744,9 +744,9 @@ Run every command from the repository root.
 ```bash
 set -a; . ./.env; set +a
 
-terraform -chdir=aws/envs/eu-west-1 init
-terraform -chdir=aws/envs/eu-west-1 plan -out=tfplan
-terraform -chdir=aws/envs/eu-west-1 apply tfplan
+terraform -chdir=aws/envs/eu-dev init
+terraform -chdir=aws/envs/eu-dev plan -out=tfplan
+terraform -chdir=aws/envs/eu-dev apply tfplan
 ```
 
 This creates about 150 resources: IAM roles (the ALB controller, Cluster Autoscaler and Karpenter use EKS Pod Identity; the CSI drivers use IRSA), EKS cluster (~15-20 min), node groups, Fargate profiles, ECR repos (builds+pushes all 20 images), EFS filesystem, add-ons, and either reuses the configured Route53 zone or creates one for a custom domain. The `alb_deployed` variable defaults to `false`, so no Route53 ALB record is created yet.
@@ -757,7 +757,7 @@ This creates about 150 resources: IAM roles (the ALB controller, Cluster Autosca
 
 ```bash
 aws eks update-kubeconfig --region eu-west-1 \
-  --name "$(terraform -chdir=aws/envs/eu-west-1 output -raw cluster_name)"
+  --name "$(terraform -chdir=aws/envs/eu-dev output -raw cluster_name)"
 kubectl get nodes   # verify nodes are Ready
 ```
 </details>
@@ -776,12 +776,12 @@ Flux) for everything else.
 
 ```bash
 # 0. CRD bootstrap — must be Established before their CRs validate.
-# A single `kubectl apply -k flux/envs/eu-west-1/` on a virgin cluster will
+# A single `kubectl apply -k flux/envs/eu-dev/` on a virgin cluster will
 # otherwise fail with "no matches for kind" for NodePool/EC2NodeClass,
 # CloudNativePG's Cluster, Gloo Edge's Settings/VirtualService/Gateway, and
 # KEDA's ScaledObject. Server-side apply avoids the annotation size limit on
 # the large CloudNativePG and KEDA CRDs.
-kubectl apply --server-side --force-conflicts -k flux/envs/eu-west-1/crds/
+kubectl apply --server-side --force-conflicts -k flux/envs/eu-dev/crds/
 
 # 1. Base namespaces
 kubectl apply -k flux/base/
@@ -815,10 +815,10 @@ kubectl -n flux-system rollout status deployment/kustomize-controller
 # fails the reconciliation instead of applying an empty value.
 bin/cluster-config.sh apply-flux
 
-# One-time: point Flux at this repo (flux/envs/eu-west-1/flux-system/source.yaml
+# One-time: point Flux at this repo (flux/envs/eu-dev/flux-system/source.yaml
 # is a public-HTTPS GitRepository tracking `main` -- no deploy key needed, but
 # also no reconciliation of anything not yet committed and pushed there).
-kubectl apply -k flux/envs/eu-west-1/flux-system/
+kubectl apply -k flux/envs/eu-dev/flux-system/
 
 # Watch progress -- replaces the manual `rollout status` polling in Option B.
 flux get kustomizations -A --watch
@@ -829,7 +829,7 @@ kubectl -n flux-system get kustomizations.kustomize.toolkit.fluxcd.io -w
 Flux then applies cert-manager, Prometheus, NATS, Garage, KEDA (and the
 `keda-demo` ScaledObject), Cluster Autoscaler, Karpenter, the ALB controller,
 CloudNativePG, kgateway, and the sample app itself, in the dependency order
-encoded in `flux/envs/eu-west-1/flux-system/kustomizations.yaml`
+encoded in `flux/envs/eu-dev/flux-system/kustomizations.yaml`
 (`dependsOn` + `wait: true`), then keeps reconciling and pruning drift on
 its own. Skip to Step 4 once `flux get kustomizations -A` shows everything
 `Ready`. From then on, deploying a change is `git push` to `main` -- see
@@ -846,7 +846,7 @@ apply them unfilled.
 
 ```bash
 # 5. cert-manager (wait for pods Ready — ALB controller depends on its webhooks)
-bin/render.sh flux/envs/eu-west-1/cert-manager | kubectl apply -f -
+bin/render.sh flux/envs/eu-dev/cert-manager | kubectl apply -f -
 kubectl -n cert-manager rollout status deployment/cert-manager
 kubectl -n cert-manager rollout status deployment/cert-manager-webhook
 kubectl -n cert-manager rollout status deployment/cert-manager-cainjector
@@ -899,14 +899,14 @@ bin/render.sh flux/modules/cloudnative-pg | kubectl apply --server-side --force-
 kubectl -n cnpg-system rollout status deployment/cnpg-controller-manager
 
 # 14. kgateway (API gateway + Ingress → creates ALB)
-bin/render.sh flux/envs/eu-west-1/kgateway | kubectl apply --server-side --force-conflicts -f -
+bin/render.sh flux/envs/eu-dev/kgateway | kubectl apply --server-side --force-conflicts -f -
 kubectl -n gateway-system rollout status deployment/gloo
 kubectl -n gateway-system rollout status deployment/gateway-proxy
 
 # 15. Sample app (FastAPI + CloudNativePG PostgreSQL cluster). Its Deployment
 # has no `replicas:` field -- once KEDA is installed (step 9) you may apply
 # flux/modules/keda-demo/ by hand to let its ScaledObject/HPA own the count;
-# it's excluded from this list and from the flux/envs/eu-west-1/ aggregate
+# it's excluded from this list and from the flux/envs/eu-dev/ aggregate
 # because ScaledObject is a KEDA CRD kind with no ordering guarantee in a
 # single-shot `kubectl apply -k` (see flux/modules/keda-demo/kustomization.yaml).
 bin/render.sh flux/modules/sample-app | kubectl apply -f -
@@ -937,12 +937,12 @@ Once the ALB exists, create the Route53 alias record:
 ```bash
 set -a; . ./.env; set +a
 
-terraform -chdir=aws/envs/eu-west-1 plan -var="alb_deployed=true" -out=tfplan
-terraform -chdir=aws/envs/eu-west-1 apply tfplan
+terraform -chdir=aws/envs/eu-dev plan -var="alb_deployed=true" -out=tfplan
+terraform -chdir=aws/envs/eu-dev apply tfplan
 ```
 
 This creates the `<app_subdomain>.<domain_name>` → ALB alias record
-(`terraform -chdir=aws/envs/eu-west-1 output app_hostname`).
+(`terraform -chdir=aws/envs/eu-dev output app_hostname`).
 </details>
 
 <details>
@@ -953,7 +953,7 @@ the domain is registered with an external registrar, update the NS records at
 the registrar to point to its Route53 nameservers:
 
 ```bash
-terraform -chdir=aws/envs/eu-west-1 output route53_nameservers
+terraform -chdir=aws/envs/eu-dev output route53_nameservers
 ```
 
 Copy the 4 nameserver values to the domain registrar's NS records.
@@ -969,7 +969,7 @@ step is unnecessary.
 curl "http://$(kubectl -n gateway-system get ingress kgateway-alb -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')/"
 
 # With a custom domain
-curl "https://$(terraform -chdir=aws/envs/eu-west-1 output -raw app_hostname)/"
+curl "https://$(terraform -chdir=aws/envs/eu-dev output -raw app_hostname)/"
 # Either should return the FastAPI sample app response
 ```
 
@@ -988,9 +988,9 @@ For changes after the initial setup:
 ```bash
 set -a; . ./.env; set +a
 
-terraform -chdir=aws/envs/eu-west-1 plan -var="alb_deployed=true" -out=tfplan
+terraform -chdir=aws/envs/eu-dev plan -var="alb_deployed=true" -out=tfplan
 # Review the plan
-terraform -chdir=aws/envs/eu-west-1 apply tfplan
+terraform -chdir=aws/envs/eu-dev apply tfplan
 ```
 
 Note: with a custom domain, always pass `-var="alb_deployed=true"` after the ALB exists, otherwise Terraform will try to destroy the Route53 ALB record. Without one the flag has no effect.
@@ -1025,7 +1025,7 @@ bin/check.sh
 # Apply the specific module that changed
 bin/render.sh flux/modules/<changed-module> | kubectl apply --server-side --force-conflicts -f -
 # or apply the full environment (does not include flux-system, keda-demo)
-bin/render.sh flux/envs/eu-west-1 | kubectl apply --server-side --force-conflicts -f -
+bin/render.sh flux/envs/eu-dev | kubectl apply --server-side --force-conflicts -f -
 ```
 </details>
 
@@ -1034,7 +1034,7 @@ bin/render.sh flux/envs/eu-west-1 | kubectl apply --server-side --force-conflict
 
 When updating application code or Dockerfiles:
 
-1. Update the `image_tag` in `aws/envs/eu-west-1/ecr.tf`
+1. Update the `image_tag` in `aws/envs/eu-dev/ecr.tf`
 2. Run `terraform apply` — the ECR module detects source hash changes and rebuilds/pushes
 3. Update the image tag in the corresponding Flux deployment manifest
 4. Apply the Kubernetes change: push to `main` (Flux), or `bin/render.sh flux/modules/<app> | kubectl apply -f -`
@@ -1061,7 +1061,7 @@ set -a; . ./.env; set +a
 # ordered steps below instead of all being deleted at once.
 kubectl -n flux-system get kustomizations.kustomize.toolkit.fluxcd.io -o name \
   | xargs -n1 kubectl -n flux-system patch --type merge -p '{"spec":{"suspend":true}}'
-kubectl delete -k flux/envs/eu-west-1/flux-system/
+kubectl delete -k flux/envs/eu-dev/flux-system/
 kubectl delete -k flux/modules/flux-system/
 
 # 1. The Ingress. The ALB controller deletes the ALB, its target groups and
@@ -1083,15 +1083,15 @@ while [ -n "$(kubectl -n apps-demo get pvc -o name)" ]; do sleep 10; done
 
 # 5. Everything else. The database CR and its claims are already gone, so it
 # is now safe to remove the CNPG operator, namespace and CRDs.
-bin/render.sh flux/envs/eu-west-1 | kubectl delete -f - --ignore-not-found --timeout=15m
+bin/render.sh flux/envs/eu-dev | kubectl delete -f - --ignore-not-found --timeout=15m
 
 # 6. Wait until the EBS CSI driver has deleted every volume.
 while [ -n "$(kubectl get pv -o name)" ]; do sleep 10; done
 
 # 7. Destroy. Leave alb_deployed at its default (false): the ALB is gone and
 # looking it up would fail. The Route53 record is destroyed either way.
-terraform -chdir=aws/envs/eu-west-1 plan -destroy -out=destroy.tfplan
-terraform -chdir=aws/envs/eu-west-1 apply destroy.tfplan
+terraform -chdir=aws/envs/eu-dev plan -destroy -out=destroy.tfplan
+terraform -chdir=aws/envs/eu-dev apply destroy.tfplan
 ```
 </details>
 
@@ -1105,7 +1105,7 @@ terraform -chdir=aws/envs/eu-west-1 apply destroy.tfplan
   `TF_VAR_route53_zone_id` set, Terraform deletes only the app alias and leaves
   the existing zone and its other records untouched.
 - **ECR:** repositories are deleted with their images (`force_delete` in
-  `aws/envs/eu-west-1/ecr.tf`). The next `terraform apply` rebuilds them.
+  `aws/envs/eu-dev/ecr.tf`). The next `terraform apply` rebuilds them.
 - **Fargate logs:** Fluent Bit creates the CloudWatch log group
   `/aws/eks/fargate/logs`, which Terraform doesn't manage. Delete it if no
   other cluster in the account writes to it:
@@ -1157,7 +1157,7 @@ These caveats apply in the same spirit as the Karpenter note in Step 3
   scraping can't attach a bearer token) -- demo-only; and the per-pod zones
   (`zone-0`/`zone-1`/`zone-2`) are logical placeholders, not real AWS AZs.
 - **Flux**: `flux/modules/flux-system/` and
-  `flux/envs/eu-west-1/flux-system/` are real, not a naming convention over
+  `flux/envs/eu-dev/flux-system/` are real, not a naming convention over
   plain `kubectl apply -k` -- but reconciliation only starts once these
   manifests are committed and pushed to `main` (see Step 3, Option A).
 </details>

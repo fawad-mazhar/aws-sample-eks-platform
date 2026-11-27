@@ -7,7 +7,7 @@ vpcId: configured-by-cluster-information
 enableCertManager: true
 
 # No serviceAccount role-arn annotation: the IAM role is bound through an
-# EKS Pod Identity association in Terraform (aws/envs/eu-west-1).
+# EKS Pod Identity association in Terraform (aws/envs/eu-dev).
 
 podSecurityContext:
   fsGroup: 1337

@@ -12,8 +12,8 @@
 #
 # This is a one-time, manual bootstrap step (`kubectl apply -k
 # flux/modules/flux-system/`), applied before the `flux-system`
-# GitRepository/Kustomization set in flux/envs/eu-west-1/flux-system/. It is
-# intentionally NOT part of the flux/envs/eu-west-1/ aggregate: the CRDs it
+# GitRepository/Kustomization set in flux/envs/eu-dev/flux-system/. It is
+# intentionally NOT part of the flux/envs/eu-dev/ aggregate: the CRDs it
 # ships won't exist yet on a virgin apply of that aggregate.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization

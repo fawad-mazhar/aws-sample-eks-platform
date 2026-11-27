@@ -3,7 +3,7 @@ set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
 
-ECR_TF="aws/envs/eu-west-1/ecr.tf"
+ECR_TF="aws/envs/eu-dev/ecr.tf"
 RENDERED_DIR="build/validate/rendered"
 fail=0
 

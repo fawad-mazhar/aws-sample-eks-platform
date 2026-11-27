@@ -27,7 +27,7 @@ metadata:
   namespace: flux-system
 spec:
   interval: 10m
-  path: ./flux/envs/eu-west-1/crds
+  path: ./flux/envs/eu-dev/crds
   prune: true
   wait: true
   sourceRef:
@@ -87,7 +87,7 @@ metadata:
   namespace: flux-system
 spec:
   interval: 10m
-  path: ./flux/envs/eu-west-1/cert-manager
+  path: ./flux/envs/eu-dev/cert-manager
   prune: true
   wait: true
   dependsOn:
@@ -271,7 +271,7 @@ metadata:
   namespace: flux-system
 spec:
   interval: 10m
-  path: ./flux/envs/eu-west-1/kgateway
+  path: ./flux/envs/eu-dev/kgateway
   prune: true
   wait: false # Gloo Edge Settings/VirtualService/Gateway: kstatus can't assess these CRD kinds
   dependsOn:

@@ -2,7 +2,7 @@
 # Builds the environment's full manifest set with the ${VAR} placeholders
 # filled in (bin/render.sh), i.e. what would actually be applied. Variables
 # come from the environment's Terraform outputs, or from VARS_FILE, e.g.
-#   VARS_FILE=flux/envs/eu-west-1/cluster-vars.example.env bin/build.sh eu-west-1
+#   VARS_FILE=flux/envs/eu-dev/cluster-vars.example.env bin/build.sh eu-dev
 set -e
 
 function log() {
@@ -13,7 +13,7 @@ ENV=${1}
 if [ -z "${ENV}" ]; then
 	echo "Environment name arg missing"
 	echo "Usage: bin/build.sh <env>"
-	echo "Example: bin/build.sh eu-west-1"
+	echo "Example: bin/build.sh eu-dev"
 	exit 1
 fi
 

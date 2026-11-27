@@ -4,8 +4,8 @@
 #
 #   bin/render.sh flux/modules/sample-app | kubectl apply -f -
 #
-# Variables come from VARS_FILE (KEY=VALUE lines) when set, otherwise from the
-# Terraform outputs of ENVIRONMENT (default eu-west-1) via
+# # Variables come from VARS_FILE (KEY=VALUE lines) when set, otherwise from the
+# Terraform outputs of ENVIRONMENT (default eu-dev) via
 # `bin/cluster-config.sh vars`.
 set -euo pipefail
 
@@ -19,7 +19,7 @@ root="$(git rev-parse --show-toplevel)"
 if [ -n "${VARS_FILE:-}" ]; then
 	variables="$(cat "$VARS_FILE")"
 else
-	variables="$("$root/bin/cluster-config.sh" vars "${ENVIRONMENT:-eu-west-1}")"
+	variables="$("$root/bin/cluster-config.sh" vars "${ENVIRONMENT:-eu-dev}")"
 fi
 
 if command -v kustomize > /dev/null 2>&1; then

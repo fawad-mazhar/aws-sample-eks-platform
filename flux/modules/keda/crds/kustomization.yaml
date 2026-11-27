@@ -10,7 +10,7 @@
 # Referenced from two places:
 #   - ../kustomization.yaml (this module's own kustomization), making the
 #     `keda` module self-contained.
-#   - flux/envs/eu-west-1/crds/kustomization.yaml (the CRD bootstrap stage),
+#   - flux/envs/eu-dev/crds/kustomization.yaml (the CRD bootstrap stage),
 #     so ScaledObject/etc. are Established up front for the plain
 #     `kubectl apply -k` fallback path too. Applying the same CRDs via both
 #     paths is a no-op.

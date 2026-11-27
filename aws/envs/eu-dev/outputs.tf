@@ -111,7 +111,7 @@ output "cluster_information" {
 
 # Read by bin/cluster-config.sh: the variables Flux substitutes into the
 # manifests (flux-system/cluster-vars ConfigMap, postBuild.substituteFrom).
-# flux/envs/eu-west-1/cluster-vars.example.env lists the same keys.
+# flux/envs/eu-dev/cluster-vars.example.env lists the same keys.
 output "flux_vars" {
   value = {
     ECR_REGISTRY        = local.ecr_registry

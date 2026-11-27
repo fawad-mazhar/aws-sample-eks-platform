@@ -11,7 +11,7 @@ settings:
   clusterName: configured-by-cluster-information
 
 # No serviceAccount role-arn annotation: the IAM role is bound through an
-# EKS Pod Identity association in Terraform (aws/envs/eu-west-1).
+# EKS Pod Identity association in Terraform (aws/envs/eu-dev).
 
 controller:
   image:

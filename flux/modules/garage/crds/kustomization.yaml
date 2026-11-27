@@ -6,7 +6,7 @@
 # Referenced from two places:
 #   - ../kustomization.yaml (this module's own kustomization), making the
 #     `garage` module self-contained.
-#   - flux/envs/eu-west-1/crds/kustomization.yaml (the CRD bootstrap stage),
+#   - flux/envs/eu-dev/crds/kustomization.yaml (the CRD bootstrap stage),
 #     so GarageNode is Established up front for the plain `kubectl apply -k`
 #     fallback path too. Applying the same CRD via both paths is a no-op.
 apiVersion: kustomize.config.k8s.io/v1beta1

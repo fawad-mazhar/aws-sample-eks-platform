@@ -32,7 +32,7 @@ spec:
         fsGroup: 10074
       # Spread pods across nodes for fault tolerance. ScheduleAnyway (not
       # DoNotSchedule) on the hostname key: the default node group sizing
-      # (aws/envs/eu-west-1/eks.tf) only guarantees 3 nodes total across two
+      # (aws/envs/eu-dev/eks.tf) only guarantees 3 nodes total across two
       # node groups on a virgin deploy, shared with every other workload in
       # the cluster, so a hard per-host requirement could leave the third
       # nats pod permanently Pending instead of just less evenly spread.

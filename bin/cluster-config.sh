@@ -9,7 +9,7 @@
 # cluster-information is read by controllers in gateway-system and
 # autoscaling-system at runtime (configMapKeyRef).
 # cluster-vars is what Flux substitutes into ${VAR} placeholders
-# (postBuild.substituteFrom). env defaults to eu-west-1.
+# (postBuild.substituteFrom). env defaults to eu-dev.
 set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
@@ -17,7 +17,7 @@ cd "$(git rev-parse --show-toplevel)"
 . bin/load-env.sh
 
 command="${1:-}"
-environment="${2:-eu-west-1}"
+environment="${2:-eu-dev}"
 tf_dir="aws/envs/${environment}"
 kgateway_overlay="flux/envs/${environment}/kgateway/kustomization.yaml"
 

@@ -39,7 +39,7 @@ spec:
         fsGroup: 10076
       # ScheduleAnyway (not DoNotSchedule) for the same node-count reason as
       # NATS: a virgin deploy only guarantees 3 nodes total across the two node
-      # groups (aws/envs/eu-west-1/eks.tf), shared with every other workload,
+      # groups (aws/envs/eu-dev/eks.tf), shared with every other workload,
       # so a hard per-host requirement could leave the third garage pod
       # permanently Pending instead of just less evenly spread.
       topologySpreadConstraints:

@@ -1,8 +1,9 @@
 # Dependency Sequence
 
-`eu-west-1` is the AWS region and configuration directory.
-`eu-dev` is the default resource prefix, with names such as `eu-dev-eks`.
-Terraform inputs come from `.env`; the region and resource prefix are separate.
+`eu-dev` is the environment directory and default resource tag.
+`eu-west-1` is the physical AWS region.
+Terraform inputs come from `.env`; the environment, region and resource names
+are separate concepts.
 
 ```text
 VPC/subnet discovery
@@ -62,10 +63,10 @@ readiness gates:
 After the Ingress has a healthy ALB target, run:
 
 ```bash
-terraform -chdir=aws/envs/eu-west-1 plan \
+terraform -chdir=aws/envs/eu-dev plan \
   -var="alb_deployed=true" \
   -out=tfplan
-terraform -chdir=aws/envs/eu-west-1 apply tfplan
+terraform -chdir=aws/envs/eu-dev apply tfplan
 ```
 
 This creates the custom-domain Route53 alias only after the ALB exists.

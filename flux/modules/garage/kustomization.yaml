@@ -5,7 +5,7 @@
 # bootstraps cluster-level state (the layout assignment and a demo bucket/key).
 #
 # statefulset.yaml and layout-bootstrap-job.yaml reference the ECR-mirrored
-# `garage`/`kubectl` images directly (matching aws/envs/eu-west-1/ecr.tf's
+# `garage`/`kubectl` images directly (matching aws/envs/eu-dev/ecr.tf's
 # pinned tags), the same way NATS/prometheus/karpenter hardcode their ECR image
 # refs in this repo -- no `images:` transformer needed.
 #

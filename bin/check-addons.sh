@@ -47,7 +47,7 @@ module_default() {
 environment_value() {
 	local variable="$1"
 	sed -n "s/.*${variable}[[:space:]]*=[[:space:]]*\"\([^\"]*\)\".*/\1/p" \
-		aws/envs/eu-west-1/eks.tf
+		aws/envs/eu-dev/eks.tf
 }
 
 check_addon coredns "$(module_default coredns_addon_version)"

@@ -10,7 +10,7 @@
 #
 # Apply this kustomization first with server-side apply to establish the large
 # CRDs without exceeding the client-side last-applied annotation limit:
-# `kubectl apply --server-side --force-conflicts -k flux/envs/eu-west-1/crds/`
+# `kubectl apply --server-side --force-conflicts -k flux/envs/eu-dev/crds/`
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:

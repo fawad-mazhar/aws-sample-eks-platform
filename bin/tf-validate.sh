@@ -3,7 +3,7 @@ set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
 
-ENVIRONMENT="${1:-eu-west-1}"
+ENVIRONMENT="${1:-eu-dev}"
 TF_DIR="aws/envs/${ENVIRONMENT}"
 
 if [ ! -d "$TF_DIR" ]; then

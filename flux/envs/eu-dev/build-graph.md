@@ -1,7 +1,8 @@
 # Dependency Sequence
 
-`eu-west-1` is the AWS region and configuration directory.
-`eu-dev` is the default resource prefix. Flux reconciles resources committed
+`eu-dev` is the environment directory and default resource tag.
+`eu-west-1` is the physical AWS region.
+Flux reconciles resources committed
 and pushed to `main`; local or unpushed changes are not source-of-truth changes.
 
 ```text

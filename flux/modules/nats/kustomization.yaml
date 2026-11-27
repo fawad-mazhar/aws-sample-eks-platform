@@ -6,7 +6,7 @@
 #
 # statefulset.yaml and stream-setup-job.yaml reference the ECR-mirrored
 # `nats`/`nats-box`/`prometheus-nats-exporter` images directly (matching
-# aws/envs/eu-west-1/ecr.tf's pinned tags), the same way
+# aws/envs/eu-dev/ecr.tf's pinned tags), the same way
 # prometheus/karpenter/cluster-autoscaler hardcode their ECR image refs in
 # this repo -- no `images:` transformer needed since this module isn't
 # vendored from an external renderer. The exporter sidecar puts the
