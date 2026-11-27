@@ -1,10 +1,5 @@
 # Dependency Sequence
 
-`eu-dev` is the environment directory and default resource tag.
-`eu-west-1` is the physical AWS region.
-Terraform inputs come from `.env`; the environment, region and resource names
-are separate concepts.
-
 ```text
 VPC/subnet discovery
         |
