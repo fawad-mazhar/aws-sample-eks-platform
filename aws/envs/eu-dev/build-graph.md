@@ -4,36 +4,40 @@
 VPC/subnet discovery
         |
         v
-EKS, node, Fargate and CSI IAM roles
+EKS cluster/node/Fargate IAM roles
         |
         v
 EKS 1.37 control plane
   - OIDC provider
   - control-plane ENIs
         |
-        +---------------------------+
-        v                           v
-Pre-compute add-ons            EFS filesystem
-  - VPC CNI                   3 AZ mount targets
+        v
+Pre-compute add-ons
+  - VPC CNI
   - EKS Pod Identity Agent
         |
         v
 Managed node groups + Fargate profiles
         |
         v
-Post-compute CSI add-ons
+EBS/EFS CSI IRSA roles
+  - require the cluster OIDC provider
+        |
+        v
+Post-compute add-ons
   - EBS CSI (EBS IRSA role)
   - EFS CSI (EFS IRSA role)
         |
-        +---------------------------+
-        v                           v
-Pod Identity associations         Karpenter infrastructure
-  - ALB controller                 - Pod Identity association
-  - Cluster Autoscaler             - interruption queue
-  - Karpenter controller            - controller/node IAM roles
+        v
+Karpenter and controller AWS resources
+  - Pod Identity associations
+  - Karpenter interruption queue
+  - Karpenter controller/node IAM roles
+  - EFS filesystem and mount targets
 
-Karpenter infrastructure and Pod Identity associations require the EKS
-cluster name and are not prerequisites for CSI add-on role creation.
+Pod Identity associations and Karpenter infrastructure require the EKS
+cluster name. EFS mounts are created in the Availability Zones represented by
+the selected private subnets.
 
 Independent parallel work:
   - ECR repositories and image builds
@@ -47,11 +51,13 @@ EKS control plane. Install VPC CNI and the EKS Pod Identity Agent before
 compute; this prevents the node-group readiness deadlock.
 
 After pre-compute add-ons are active, create managed node groups and Fargate
-profiles. Then create the EBS/EFS CSI IRSA roles and install the CSI add-ons.
+profiles. The EBS/EFS CSI IRSA roles then need the cluster OIDC provider,
+and only after their role ARNs exist can the matching CSI add-ons install.
 Create the ALB Controller, Cluster Autoscaler and Karpenter Pod Identity
 associations after the cluster and roles exist. The Karpenter module uses the
 cluster name for its queue, controller role, node role and Pod Identity
-association; tag private subnets and the node security group for discovery.
+association. Private subnets receive the Karpenter discovery tag, while the
+EKS module sets the node security-group discovery tag.
 
 Private subnets must belong to the VPC and span at least two Availability
 Zones. ECR builds and Route53 zone discovery can proceed independently.

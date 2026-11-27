@@ -21,15 +21,21 @@ Flux controllers
   - kustomize-controller
         |
         v
+Cluster vars ConfigMap
+  - cluster-vars
+        |
+        v
 GitRepository(main)
         |
         v
 Flux Kustomization DAG
         |
         +-----------+------------+-------------+----------------+
-        v           v            v             v                v
-   Prometheus     NATS        Garage         KEDA          Cluster
-                                                   Autoscaler
+        v           v            v             v
+   Prometheus     NATS        Garage         KEDA
+
+Cluster Autoscaler
+  - depends on base
 
 Garage is independent storage data-plane work; it does not create the
 sample application or a dependency edge to sample-app.
@@ -51,11 +57,11 @@ sample-app + KEDA -> keda-demo
 2. Establish external CRDs with server-side apply before creating custom
    resources.
 3. Apply base namespaces, AWS StorageClasses and Fargate logging.
-4. Create the Terraform-derived ConfigMaps:
-   - `cluster-information` in `gateway-system` and `autoscaling-system`
-   - `cluster-vars` in `flux-system`
-5. Install the Flux controllers, then apply the `GitRepository` and Flux
-   `Kustomization` DAG.
+4. Create `cluster-information` in `gateway-system` and `autoscaling-system`.
+5. Install the Flux controllers.
+6. Create `cluster-vars` in `flux-system` with
+   `bin/cluster-config.sh apply-flux`.
+7. Apply the `GitRepository` and Flux `Kustomization` DAG.
 
 The `cluster-vars` ConfigMap supplies ECR registry, environment prefix, cluster
 name, Karpenter node role, hostname and certificate values to Flux substitutions.

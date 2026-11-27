@@ -641,18 +641,19 @@ cp .env.example .env    # then edit it
 set -a; . ./.env; set +a
 ```
 
-The environment folder and resource tag are pinned together:
-`aws/envs/eu-dev/terraform.tfvars` sets `environment = "eu-dev"`, and matching
-Flux files live under `flux/envs/eu-dev/`. Keep them paired; a `.env` file
-does not select a different environment root.
+The repository is currently implemented and tested only for the `eu-dev`
+environment in `eu-west-1`. The resource tag is pinned in
+`aws/envs/eu-dev/terraform.tfvars`; matching Flux files live under
+`flux/envs/eu-dev/`. A `.env` file does not select a different environment
+root.
 
-For a new environment, copy both `aws/envs/eu-dev` and `flux/envs/eu-dev`,
-rename both folders consistently, and set the copied Terraform `environment`
-and `region` values explicitly. Changing the tag in an existing environment
-renames resources and may replace name-immutable resources, including the EKS
-cluster, IAM roles and ECR repositories. Environment tags are limited to 7
-characters because the Karpenter EventBridge rule-name prefix must remain
-within the provider limit.
+Do not copy these folders for `eu-prd`, `us-dev`, or `us-stg` until the region
+validation, environment-dependent Flux paths, and validation scripts have been
+made configurable. Those changes are broader than a folder rename: region
+validation only accepts `eu-west-1`, Flux Kustomizations contain
+`./flux/envs/eu-dev/...` paths, and `bin/validate.sh`, `bin/check-images.sh`,
+and `bin/check-addons.sh` currently reference `eu-dev` or `eu-west-1`
+explicitly.
 
 The environment tag is not the physical region. The AWS provider attaches
 `environment`, `region`, `project` and `managed-by` default tags to every
